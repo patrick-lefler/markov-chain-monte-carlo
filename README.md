@@ -4,7 +4,7 @@ Author: Patrick Lefler
 
 Original Publish Date: 2026-09-25
 
-Rendered link: https://patrick-lefler.github.io/rQuarto_markov_chain_monte_carlo_2026-09-25/
+Rendered link: https://patrick-lefler.com/markov-chain-monte-carlo/
 
 ### Project Introduction
 
