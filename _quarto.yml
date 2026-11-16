@@ -2,12 +2,21 @@
 project:
   type: website
   output-dir: docs
+  render:
+    - index.qmd
+    - 01-mechanics.qmd
+    - 02-risk-application.qmd
+    - 03-reproducibility.qmd
+    - license.qmd
+
 
 website:
   title: "Markov Chain Monte Carlo in Action"
-  description: "Taming High-Dimensional Risk Models with Markov Chain Monte Carlo"
-  navbar:
-    left:
+  search: false
+  page-navigation: true
+  sidebar:
+    style: floating
+    contents:
       - href: index.qmd
         text: "Intuition & The Walk"
       - href: 01-mechanics.qmd
@@ -16,6 +25,8 @@ website:
         text: "Portfolio Risk Model"
       - href: 03-reproducibility.qmd
         text: "Audit & Diagnostics"
+  page-footer:
+    center: "© 2026 Patrick Lefler ⦁ [MIT License](license.qmd) ⦁ Built with R & Quarto"
 
 format:
   html:
@@ -31,3 +42,8 @@ format:
     embed-resources: true
     self-contained-math: true
     
+execute:
+  echo: true
+  freeze: auto
+  warning: false
+  message: false
