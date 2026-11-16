@@ -401,13 +401,17 @@ mcmc-in-action/
     └── synthetic_returns.csv # Frozen 250-day x 10-factor returns matrix
 ```
 
-#### Session Information
+## Session Information
 
-```{r session-info, echo = FALSE}
-
+::: {.callout-note icon = false collapse="true"}
+## Full R session information
+```{r}
+#| label: session-information
+#| echo: false
 sessioninfo::session_info()
-
 ```
+:::
+
 
 ```{css, echo = FALSE}
 .react_table {
