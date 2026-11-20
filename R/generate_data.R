@@ -5,13 +5,11 @@
 # -----------------------------------------------------------------------------
 
 library(dplyr)
-library(MASS)
 library(tibble)
 library(readr)
 
-generate_synthetic_returns <- function(n_days = 250, seed = 20260924) {
-  set.seed(seed)
-  
+# True generating parameters, also read by the Audit & Diagnostics page.
+synthetic_params <- function() {
   asset_names <- c(
     "US_LargeCap",   # Core Equity Beta
     "US_SmallCap",   # Size Premium
@@ -27,14 +25,9 @@ generate_synthetic_returns <- function(n_days = 250, seed = 20260924) {
   
   d <- length(asset_names)
   
-  # 1. Define Annualized Expectations and Convert to Daily
-  # Daily mean returns (~3% to ~11% annualized)
+  # 1. Annualized mean returns and volatilities
   ann_returns <- c(0.085, 0.095, 0.110, 0.065, 0.075, 0.035, 0.050, 0.060, 0.045, 0.070)
-  mu_daily <- ann_returns / 252
-  
-  # Daily volatility (~10% to ~28% annualized)
-  ann_vols <- c(0.16, 0.22, 0.26, 0.18, 0.24, 0.08, 0.10, 0.20, 0.15, 0.19)
-  sigma_daily <- ann_vols / sqrt(252)
+  ann_vols    <- c(0.16, 0.22, 0.26, 0.18, 0.24, 0.08, 0.10, 0.20, 0.15, 0.19)
   
   # 2. Construct Realistic Correlation Matrix (Rho)
   Rho <- matrix(0.20, nrow = d, ncol = d) # Baseline cross-asset correlation
@@ -52,6 +45,19 @@ generate_synthetic_returns <- function(n_days = 250, seed = 20260924) {
   # Gold hedge characteristics
   Rho[9, eq_idx] <- Rho[eq_idx, 9] <- -0.05
   Rho[9, 6]      <- Rho[6, 9]      <- 0.25  # Gold & Treasuries positive correlation
+
+  list(asset_names = asset_names, ann_returns = ann_returns, ann_vols = ann_vols, Rho = Rho)
+}
+
+generate_synthetic_returns <- function(n_days = 250, seed = 20260924) {
+  set.seed(seed)
+
+  p <- synthetic_params()
+  asset_names <- p$asset_names
+  d <- length(asset_names)
+  mu_daily <- p$ann_returns / 252
+  sigma_daily <- p$ann_vols / sqrt(252)
+  Rho <- p$Rho
   
   # 3. Covariance Matrix: Sigma = diag(sigma) %*% Rho %*% diag(sigma)
   cov_matrix <- diag(sigma_daily) %*% Rho %*% diag(sigma_daily)
