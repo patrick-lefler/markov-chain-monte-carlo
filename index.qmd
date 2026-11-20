@@ -173,7 +173,8 @@ This project demonstrates the implementation, diagnostic auditing, and tail-risk
 
 - [The Metropolis Engine](01-mechanics.qmd): The R implementation from scratch (without MCMC libraries), detailing acceptance ratios and proposal step-size calibration.
 - [Portfolio Risk Model](02-risk-application.qmd): Sampling the 10-factor posterior under fixed covariance to evaluate Value at Risk (VaR) and Expected Shortfall (ES), benchmarked against the exact closed-form posterior.
-- [Audit & Diagnostics](03-reproducibility.qmd): Four-chain convergence checks with split-$\hat{R}$, autocorrelation decay, and Effective Sample Size (ESS) audits cross-checked against the `posterior` package.
+- [Audit & Diagnostics](03-diagnostics.qmd): Four-chain convergence checks with split-$\hat{R}$, autocorrelation decay, and Effective Sample Size (ESS) audits cross-checked against the `posterior` package.
+- [Reproducibility](04-reproducibility.qmd): How to rebuild the site, the software environment, data checksum, seeds, and known limitations.
 
 
 

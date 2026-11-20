@@ -6,7 +6,8 @@ project:
     - index.qmd
     - 01-mechanics.qmd
     - 02-risk-application.qmd
-    - 03-reproducibility.qmd
+    - 03-diagnostics.qmd
+    - 04-reproducibility.qmd
     - license.qmd
 
 
@@ -14,8 +15,11 @@ website:
   title: "Markov Chain Monte Carlo in Action"
   search: false
   page-navigation: true
+  favicon: assets/images/favicon.svg
   sidebar:
     style: floating
+    logo: assets/images/logo.svg
+    logo-alt: "Seeking Eureka"
     contents:
       - href: index.qmd
         text: "Intuition & The Walk"
@@ -23,27 +27,41 @@ website:
         text: "The Metropolis Engine"
       - href: 02-risk-application.qmd
         text: "Portfolio Risk Model"
-      - href: 03-reproducibility.qmd
+      - href: 03-diagnostics.qmd
         text: "Audit & Diagnostics"
+      - href: 04-reproducibility.qmd
+        text: "Reproducibility"
   page-footer:
     center: "© 2026 Patrick Lefler ⦁ [MIT License](license.qmd) ⦁ Built with R & Quarto"
 
 format:
   html:
+    code-copy: true
     code-fold: true
+    code-overflow: wrap
+    code-tools: true
     df-print: paged
-    fig-width: 8
-    fig-height: 5
+    fig-align: center 
+    fig-width: 10
+    fig-height: 6
+    highlight-style: arrow
     lightbox: true
     linkcolor: "#0166CC"
-    theme: sandstone
+    number-sections: false
+    page-layout: full
+    smooth-scroll: true
+    theme: [sandstone, theme.scss]
     toc: true
     toc-depth: 3
-    embed-resources: true
-    self-contained-math: true
-    
+    toc-location: right
+    toc-title: "contents"
+
 execute:
   echo: true
   freeze: auto
   warning: false
   message: false
+
+knitr:
+  opts_chunk:
+    comment: "#>"

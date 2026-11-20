@@ -2,7 +2,7 @@
 #### Taming High-Dimensional Risk Models Through Random Walks
 Author: Patrick Lefler 
 
-Original Publish Date: 2026-09-25
+Original Publish Date: 2026-09-24
 
 Rendered link: https://patrick-lefler.com/markov-chain-monte-carlo/
 
@@ -32,31 +32,45 @@ it reaches a risk report.
 
 Language: R
 
-Framework: Quarto multi-page site (Sandstone theme, navbar)
+Framework: Quarto multi-page website (Sandstone theme, floating sidebar)
 
-Primary Libraries: tidyverse (dplyr, ggplot2, purrr, readr, stringr, tibble, tidyr), gt, reactable, scales, sessioninfo
+Primary Libraries: dplyr, ggplot2, tidyr, tibble, readr, scales, gt, reactable, posterior, MASS, sessioninfo
 
-Deployment/Output: Four-page self-contained HTML site (index.qmd, 01-mechanics.qmd, 02-risk-application.qmd, 03-reproducibility.qmd)
+Environment: renv (package versions pinned in `renv.lock`)
+
+Deployment/Output: Five-page HTML site rendered to `docs/` (index.qmd, 01-mechanics.qmd, 02-risk-application.qmd, 03-diagnostics.qmd, 04-reproducibility.qmd)
 
 ### Repository Structure
 
 ```
-mcmc-in-action/
-├── _quarto.yml                  # Quarto configuration (Sandstone theme, navbar)
+markov-chain-monte-carlo/
+├── _quarto.yml                  # Quarto configuration (pages, sidebar, theme, freeze)
+├── _brand.yml                   # Colors and fonts
 ├── index.qmd                    # Intuition & 2D random walk visualization
-├── 01-mechanics.qmd             # Metropolis-Hastings engine & tuning diagnostics
+├── 01-mechanics.qmd             # Metropolis-Hastings engine & step-size tuning
 ├── 02-risk-application.qmd      # 10-factor portfolio risk model & tail estimates
-├── 03-reproducibility.qmd       # Convergence diagnostics & computational manifest
+├── 03-diagnostics.qmd           # Convergence diagnostics (split-R-hat, ACF, ESS)
+├── 04-reproducibility.qmd       # Rebuild steps, environment, seeds, limitations
+├── license.qmd                  # Renders the LICENSE file
+├── LICENSE                      # MIT License
+├── renv.lock                    # Pinned package versions
 ├── R/
-├── ├── disnostics.R             # Diagnostics file
-│   ├── generate_data.R          # Generates synthetic 10-asset returns fixture
+│   ├── diagnostics.R            # ESS (Geyer) and split-R-hat
+│   ├── generate_data.R          # Generates the synthetic 10-asset returns file
 │   ├── metropolis_sampler.R     # Pure R Metropolis-Hastings sampler
-|   |── plots.R                  # ggplot2 themes and diagnostic plots
-|   |── remediate.R              # R Remediation script 
-│   └── risk_functions.R         # Joint log-posterior & tail risk evaluation
-└── data/
-    └── synthetic_returns.csv # Frozen 250-day x 10-factor returns matrix
+│   ├── plots.R                  # ggplot2 theme and plotting functions
+│   ├── repro_env.R              # Environment table for the Reproducibility page
+│   ├── risk_functions.R         # Joint log-posterior & VaR / Expected Shortfall
+│   ├── verify_diagnostics.R     # Manual sanity checks for the ESS estimator
+│   ├── verify_risk_functions.R  # Manual sanity checks for the risk functions
+│   └── verify_sampler.R         # Manual sanity checks for the sampler
+├── assets/images/               # Logo and favicon
+├── data/
+│   └── synthetic_returns.csv    # Frozen 250-day x 10-factor returns matrix
+└── docs/                        # Rendered site
 ```
+
+To rebuild: `Rscript -e 'renv::restore()'`, then `quarto render`. See the Reproducibility page for details.
  
 ### Key Findings
 - **Point estimates are right.** The sampler reproduces the exact posterior 
@@ -74,7 +88,7 @@ mcmc-in-action/
   short for overdispersed starts.
 - **Effective sample size is far too low.** Pooled across four chains 
   (10,000 draws), bulk ESS is only 65–316 for the audited factors, below the 
-  recommended 400. All three pass on tail ESS except Tech Growth (132). 
+  recommended 400. On tail ESS only Treasuries clear 400 (640); Tech Growth is 132 and US Large Cap 244. 
   Estimates were cross-checked against the `posterior` package.
 - **A healthy acceptance rate is not evidence of convergence.** The chain 
   accepts 28.9% of proposals, within the conventional target, yet mixes 
