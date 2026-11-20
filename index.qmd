@@ -3,13 +3,6 @@ title: "The Mechanics of Markov Chain Monte Carlo"
 subtitle: "Benchmarking First-Principles Parameter Exploration in Correlated Factor Spaces"
 author: "Patrick Lefler"
 date: "September 24, 2026"
-abstract: |
-  Portfolio risk models must estimate many correlated parameters at once, and deterministic grid integration becomes impractical as the number of dimensions grows ($K^D$). This project builds a Random-Walk Metropolis sampler from first principles in R, with no MCMC libraries, and applies it to the expected returns of a 10-factor portfolio spanning equity, credit, duration, and commodity exposures. The model is deliberately chosen to have an exact answer: with multivariate normal returns and covariance fixed at its sample estimate, the posterior is $\boldsymbol{\mu} \mid \mathbf{R}, \mathbf{\Sigma} \sim \mathcal{N}(\bar{\mathbf{x}}, \tfrac{1}{n}\mathbf{\Sigma})$. This lets every MCMC output be checked against closed-form truth.
-
-  The results show how a sampler can look healthy and still understate risk. At a 28.9% acceptance rate, well within conventional targets, the chain reproduces the exact posterior means of Value at Risk (1.05%) and Expected Shortfall (1.33%). The diagnostics tell a different story. All ten factors are at or above the split-$\hat{R}$ convergence threshold of 1.01 across four chains (maximum 1.057). Pooled across four chains (10,000 draws), bulk Effective Sample Size is only 65–316, and tail ESS for Tech Growth is 132, well below the recommended 400. Most important for risk reporting, the MCMC credible interval for VaR is about 17% narrower than the exact interval, so the sampler understates parameter uncertainty.
-
-  The cause is a single isotropic proposal step applied to factors with very different scales and strong correlations. The findings show why acceptance rates alone are not sufficient evidence of convergence, and why production risk engines need covariance-preconditioned or gradient-based samplers, validated with multi-chain diagnostics and, where possible, exact benchmarks.
-
 ---
 
 ```{r setup, include=FALSE}
@@ -22,7 +15,28 @@ library(scales)
 
 source("R/metropolis_sampler.R")
 source("R/risk_functions.R")
+source("R/diagnostics.R")
 source("R/plots.R")
+source("R/analysis.R")
+
+# Shared 10-factor analysis: numbers quoted in the Introduction and Scope & Limitations
+res <- run_analysis()
+st  <- res$settings
+pct <- function(x, digits = 2) sprintf(paste0("%.", digits, "f%%"), x * 100)
+num_word <- function(n) xfun::numbers_to_words(n)
+
+txt_acc      <- pct(res$acceptance_rate, 1)
+txt_var      <- pct(res$exact$var)
+txt_es       <- pct(res$exact$es)
+means_agree  <- round(res$risk_table$mean_estimate[1], 4) == round(res$exact$var, 4) &&
+                round(res$risk_table$mean_estimate[2], 4) == round(res$exact$es, 4)
+txt_fail     <- if (res$n_rhat_fail == res$d) paste("All", num_word(res$d), "factors") else
+                  paste(stringr::str_to_sentence(num_word(res$n_rhat_fail)), "of", num_word(res$d), "factors")
+txt_rhat_max <- sprintf("%.3f", max(res$rhat))
+txt_bulk     <- sprintf("%d–%d", min(res$ess_bulk), max(res$ess_bulk))
+txt_tail_tech <- res$ess_tail[["Tech_Growth"]]
+txt_narrow   <- sprintf("%.0f%%", (1 - res$width_ratio) * 100)
+txt_draws    <- scales::comma(res$n_keep * res$n_chains)
 
 # Run toy 2D chain for hero visual
 target_bivariate <- function(theta) {
@@ -43,12 +57,23 @@ hero_chain <- run_metropolis(
 
 ---
 
+## Introduction
+Markov Chain Monte Carlo (MCMC) is a computational class of algorithms designed to sample from complex, high-dimensional probability distributions when analytical integration is intractable. In portfolio risk management, evaluating joint risk across multiple assets requires characterizing dependent parameters simultaneously—including factor means, volatilities, and cross-asset correlations. For non-standard priors or complex likelihoods, deterministic numerical grid integration scales exponentially with dimension ($K^D$), quickly exceeding practical computational limits.
+
+MCMC bypasses deterministic grid mapping by replacing brute-force evaluation with an informed random walk. Guided by transition rules such as the Metropolis-Hastings criterion, the sampler proposes local moves, accepting higher-density coordinates and probabilistically accepting lower-density proposals. Over extended sampling runs, the chain visits parameter states in proportion to their underlying posterior density, mapping the target space without evaluating intractable normalizing constants.
+
+This project builds a Random-Walk Metropolis sampler from first principles in R, with no MCMC libraries, and applies it to the expected returns of a `r res$d`-factor portfolio spanning equity, credit, duration, and commodity exposures. The focus is on isolating parameter estimation uncertainty. The model is deliberately chosen to have an exact answer: with multivariate normal returns and covariance fixed at its sample estimate, the posterior is $\boldsymbol{\mu} \mid \mathbf{R}, \mathbf{\Sigma} \sim \mathcal{N}(\bar{\mathbf{x}}, \frac{1}{n}\mathbf{\Sigma})$. This lets every MCMC output be checked against closed-form truth, providing an auditable environment to examine convergence, proposal efficiency, and the propagation of parameter uncertainty into Value at Risk (VaR) and Expected Shortfall (ES).
+
+The results show how a sampler can look healthy and still understate risk. At a `r txt_acc` acceptance rate, well within conventional targets, the chain `r if (means_agree) "reproduces" else "comes close to"` the exact posterior means of VaR (`r txt_var`) and ES (`r txt_es`). The diagnostics tell a different story. `r txt_fail` are at or above the split-$\hat{R}$ convergence threshold of `r st$rhat_threshold` across `r num_word(res$n_chains)` chains (maximum `r txt_rhat_max`). Pooled across `r num_word(res$n_chains)` chains (`r txt_draws` draws), bulk Effective Sample Size (ESS) is only `r txt_bulk`, and tail ESS for Tech Growth is `r txt_tail_tech`, well below the recommended `r st$ess_target`. Most important for risk reporting, the MCMC credible interval for VaR is about `r txt_narrow` narrower than the exact interval, so the sampler understates parameter uncertainty.
+
+The cause is a single isotropic proposal step applied to factors with very different scales and strong correlations. The findings show why acceptance rates alone are not sufficient evidence of convergence, and why production risk engines need covariance-preconditioned or gradient-based samplers, validated with multi-chain diagnostics and, where possible, exact benchmarks.
+
 ::: {.callout-note icon = false}
 ## Scope & Limitations
 This project is a methods demonstration and model-validation case study, not 
 a production risk model. Its results should be read with these constraints in mind:
 
-- **Synthetic data.** All results use a simulated 250-day fixture drawn from a 
+- **Synthetic data.** All results use a simulated `r res$n_obs`-day fixture drawn from a 
   known multivariate normal distribution. Real returns show regime shifts, 
   volatility clustering, and structural breaks that this dataset does not.
 - **Covariance is fixed.** $\mathbf{\Sigma}$ is set to its sample estimate, so 
@@ -58,19 +83,19 @@ a production risk model. Its results should be read with these constraints in mi
 - **Gaussian tails.** The normal likelihood cannot represent fat tails or 
   skew. VaR and ES here are parametric Gaussian measures and will understate 
   losses in stressed markets.
-- **The sampler has not converged.** All ten factors fail the 
-  split-$\hat{R} < 1.01$ test, bulk ESS is 65–316 across four chains, and the 
-  VaR credible interval is about 17% too narrow. The chain's tail estimates 
+- **The sampler has not converged.** `r txt_fail` fail the 
+  split-$\hat{R} < `r st$rhat_threshold`$ test, bulk ESS is `r txt_bulk` across `r num_word(res$n_chains)` chains, and the 
+  VaR credible interval is about `r txt_narrow` too narrow. The chain's tail estimates 
   should not be used for decisions without a preconditioned or gradient-based 
   sampler.
-- **Short run and burn-in.** The chains run 3,000 iterations with a 500-draw 
+- **Short run and burn-in.** The chains run `r scales::comma(st$n_iter)` iterations with a `r st$burn_in`-draw 
   burn-in, which the trace plots show is insufficient for overdispersed starts.
 - **Deliberately simple setting.** The model is conjugate, so MCMC is not 
   actually needed here; it is used so that results can be checked against an 
   exact answer. Performance on non-conjugate models (for example, Student-t 
   likelihoods or joint mean–covariance estimation) is untested.
 - **Narrow portfolio specification.** Results cover one equal-weighted 
-  portfolio at a 1-day horizon and a 95% confidence level. Other weights, 
+  portfolio at a 1-day horizon and a `r sprintf("%.0f%%", st$alpha * 100)` confidence level. Other weights, 
   horizons, or confidence levels are not assessed.
 - **Illustrative scaling figures.** The grid-versus-MCMC timings in the 
   Dimensional Complexity table are illustrative estimates, not measured 
@@ -79,22 +104,13 @@ a production risk model. Its results should be read with these constraints in mi
 
 ---
 
-### Introduction
-Markov Chain Monte Carlo (MCMC) is a computational class of algorithms designed to sample from complex, high-dimensional probability distributions when analytical integration is intractable. In portfolio risk management, evaluating joint risk across multiple assets requires characterizing dependent parameters simultaneously—including factor means, volatilities, and cross-asset correlations. For non-standard priors or complex likelihoods, deterministic numerical grid integration scales exponentially with dimension ($K^D$), quickly exceeding practical computational limits.
-
-MCMC bypasses deterministic grid mapping by replacing brute-force evaluation with an informed random walk. Guided by transition rules such as the Metropolis-Hastings criterion, the sampler proposes local moves, accepting higher-density coordinates and probabilistically accepting lower-density proposals. Over extended sampling runs, the chain visits parameter states in proportion to their underlying posterior density, mapping the target space without evaluating intractable normalizing constants.
-
-In this demonstration, we focus on isolating parameter estimation uncertainty. Using a controlled multivariate Gaussian portfolio framework, we deliberately pair our pure-R Metropolis sampler against a model with an exact analytical solution: $\boldsymbol{\mu} \mid \mathbf{R}, \mathbf{\Sigma} \sim \mathcal{N}(\bar{\mathbf{x}}, \frac{1}{n}\mathbf{\Sigma})$  . By holding covariance fixed and evaluating expected returns against this closed-form baseline, we provide an auditable environment to examine convergence, proposal efficiency, and the propagation of parameter uncertainty into Value at Risk (VaR) and Expected Shortfall (ES).
-
----
-
-### Plain-Language Translation: How It Works
+## Plain-Language Translation: How It Works
 Imagine being placed on a large, pitch-black terrain with only a small flashlight, tasked with mapping the highest peaks and ridges. You cannot view the entire landscape at once, and pacing every square foot on a rigid grid would take an impractical amount of time. Instead, you take incremental random steps. When a step leads uphill toward higher ground, you take it; when a step heads downhill, you occasionally take it anyway to avoid staying confined to a single minor hill.
 Because you spend most of your time traversing higher ridges and pass quickly through low valleys, your path naturally traces the contours of the landscape. In financial modeling, algorithms like Markov Chain Monte Carlo deploy this sequential exploration to estimate portfolio risk. Rather than evaluating billions of arbitrary grid points across multiple correlated factors, the sampler concentrates computational effort directly in regions of high probability.
 
 ---
 
-### The Dimensional Scaling Challenge
+## The Dimensional Scaling Challenge
 When managing risk across multiple correlated factors—equity betas, credit spreads, duration, and commodities—quantifying joint parameter uncertainty is essential.
 In low dimensions, deterministic numerical quadratures or grid evaluations are trivial. However, as the parameter count ($D$) increases, Cartesian grid evaluations scale exponentially ($K^D$).
 
@@ -138,7 +154,7 @@ generate_dimension_comparison() %>%
 
 ---
 
-### The Random Walk Engine
+## The Random Walk Engine
 Markov Chain Monte Carlo navigates probability distributions via sequential, localized transitions:
 
 1. **Propose a Move:** The chain samples a candidate coordinate $\theta^*$ from a proposal distribution centered on the current state $\theta^{(t)}$.
@@ -161,19 +177,19 @@ plot_random_walk_2d(hero_chain$draws, n_steps = 180)
 
 ```
 
-#### Traversal Mechanics
+### Traversal Mechanics
 - **Stationary Convergence:** Initializing from an arbitrary coordinate in the outer tail, the chain transitions toward the high-density contour core.
 - **Proportional Dwell Time:** Once stationary, the chain continues moving, spending time across regions in proportion to target posterior density.
 
 ---
 
-### Project Structure & Roadmap
+## Project Structure & Roadmap
 
 This project demonstrates the implementation, diagnostic auditing, and tail-risk application of first-principles MCMC:
 
 - [The Metropolis Engine](01-mechanics.qmd): The R implementation from scratch (without MCMC libraries), detailing acceptance ratios and proposal step-size calibration.
-- [Portfolio Risk Model](02-risk-application.qmd): Sampling the 10-factor posterior under fixed covariance to evaluate Value at Risk (VaR) and Expected Shortfall (ES), benchmarked against the exact closed-form posterior.
-- [Audit & Diagnostics](03-diagnostics.qmd): Four-chain convergence checks with split-$\hat{R}$, autocorrelation decay, and Effective Sample Size (ESS) audits cross-checked against the `posterior` package.
+- [Portfolio Risk Model](02-risk-application.qmd): Sampling the `r res$d`-factor posterior under fixed covariance to evaluate Value at Risk (VaR) and Expected Shortfall (ES), benchmarked against the exact closed-form posterior.
+- [Audit & Diagnostics](03-diagnostics.qmd): `r stringr::str_to_sentence(num_word(res$n_chains))`-chain convergence checks with split-$\hat{R}$, autocorrelation decay, and Effective Sample Size (ESS) audits cross-checked against the `posterior` package.
 - [Reproducibility](04-reproducibility.qmd): How to rebuild the site, the software environment, data checksum, seeds, and known limitations.
 
 

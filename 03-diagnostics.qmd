@@ -18,64 +18,34 @@ source("R/metropolis_sampler.R")
 source("R/risk_functions.R")
 source("R/plots.R")
 source("R/diagnostics.R")
+source("R/analysis.R")
 
-# Sampler settings and literature thresholds used in the text
-n_iter         <- 3000
-burn_in        <- 500
-proposal_sd    <- 0.00032
-start_sd       <- 3
-rhat_threshold <- 1.01      # Vehtari et al. (2021)
-ess_target     <- 400       # Vehtari et al. (2021)
+# Run the shared 10-factor analysis (four chains, risk table, exact benchmark, diagnostics)
+res <- run_analysis()
+n_iter         <- res$settings$n_iter
+burn_in        <- res$settings$burn_in
+proposal_sd    <- res$settings$proposal_sd
+start_sd       <- res$settings$start_sd
+rhat_threshold <- res$settings$rhat_threshold
+ess_target     <- res$settings$ess_target
 
-# 1. Ingest fixture and run four chains to test mixing
-model_fixture <- build_risk_target("data/synthetic_returns.csv")
-d <- model_fixture$d
-asset_names <- model_fixture$asset_names
-n_obs <- nrow(model_fixture$returns_mat)
+d            <- res$d
+asset_names  <- res$asset_names
+n_obs        <- res$n_obs
+n_keep       <- res$n_keep
+all_chains   <- res$chains
+n_chains     <- res$n_chains
+draws_clean  <- res$draws_clean
+draws1_clean <- res$post_burn
+chain1       <- all_chains[[1]]
+post_center  <- res$post_center
+post_sd      <- res$post_sd
 
-init_theta1 <- rep(0, d)
-names(init_theta1) <- asset_names
+ess_tech  <- res$ess_chain1[["Tech_Growth"]]
+ess_treas <- res$ess_chain1[["US_Treas_10Y"]]
+ess_large <- res$ess_chain1[["US_LargeCap"]]
 
-chain1 <- run_metropolis(
-  target_log_posterior = model_fixture$target_fn,
-  initial_theta = init_theta1,
-  iterations = n_iter,
-  proposal_sd = proposal_sd,
-  seed = 42
-)
-
-post_center <- colMeans(model_fixture$returns_mat)
-post_sd     <- sqrt(diag(model_fixture$cov_emp) / n_obs)
-
-set.seed(2026)
-signs <- sample(c(-1, 1), d, replace = TRUE)
-starts <- list(
-  post_center + start_sd * post_sd,          # all high
-  post_center - start_sd * post_sd,          # all low
-  post_center + start_sd * post_sd * signs   # mixed
-)
-seeds <- c(99, 123, 456)
-
-extra_chains <- lapply(seq_along(starts), function(i) {
-  th <- starts[[i]]; names(th) <- asset_names
-  run_metropolis(model_fixture$target_fn, th,
-                 iterations = n_iter, proposal_sd = proposal_sd, seed = seeds[i])
-})
-
-all_chains <- c(list(chain1), extra_chains)
-n_chains   <- length(all_chains)
-
-# Discard burn-in
-n_keep       <- n_iter - burn_in
-draws_clean  <- lapply(all_chains, function(ch) ch$draws %>% slice_tail(n = n_keep))
-draws1_clean <- draws_clean[[1]]
-
-# 2. Effective Sample Size (Geyer initial monotone sequence; see R/diagnostics.R)
-ess_tech  <- compute_ess_robust(draws1_clean$Tech_Growth)
-ess_treas <- compute_ess_robust(draws1_clean$US_Treas_10Y)
-ess_large <- compute_ess_robust(draws1_clean$US_LargeCap)
-
-# 3. Inline values for the text
+# Inline values for the text
 fmt_pct <- function(x, digits = 1) sprintf(paste0("%.", digits, "f%%"), x * 100)
 txt_acc_c1 <- fmt_pct(chain1$acceptance_rate)
 
@@ -135,12 +105,11 @@ reactable(synthetic_data_returns,
 ### The Diagnostic Framework
 In quantitative validation workflows, evaluating an MCMC sampler involves three core criteria:
 
-	1.	Stationarity: The chain has converged to the target distribution and is invariant to initialization coordinates.
+1.	Stationarity: The chain has converged to the target distribution and is invariant to initialization coordinates.
 
-	2.	Mixing Across Dimensions: The chain traverses parameter space without prolonged freezing or sluggish diffusion.
+2.	Mixing Across Dimensions: The chain traverses parameter space without prolonged freezing or sluggish diffusion.
   
-	3.	Effective Sample Size (ESS): Autocorrelation decays rapidly enough to provide sufficient independent information for quantile estimation (Vehtari et al., 2021).
-
+3.	Effective Sample Size (ESS): Autocorrelation decays rapidly enough to provide sufficient independent information for quantile estimation (Vehtari et al., 2021).
 
 ### Multi-Chain Mixing Verification
 
@@ -187,8 +156,7 @@ ggplot(trace_df, aes(x = iteration, y = Tech_Growth, color = Chain)) +
 
 rhat_tbl <- tibble(
   Factor = asset_names,
-  Split_Rhat = sapply(asset_names, function(a)
-    compute_split_rhat(lapply(draws_clean, function(dc) dc[[a]])))
+  Split_Rhat = unname(res$rhat[asset_names])
 ) %>%
   mutate(Status = if_else(Split_Rhat < rhat_threshold, "Converged", "Not converged"))
 
@@ -293,17 +261,9 @@ To avoid truncation bias in persistent chains, Effective Sample Size is computed
 
 ```{r ess-table}
 
-# Combine one factor's draws from all chains into an n_keep x n_chains matrix
-chain_matrix <- function(factor) {
-  sapply(draws_clean, function(dc) dc[[factor]])
-}
-
-factors_audit <- c("Tech_Growth", "US_Treas_10Y", "US_LargeCap")
-
-ess_pooled_bulk <- sapply(factors_audit, function(f)
-  round(posterior::ess_bulk(chain_matrix(f))))
-ess_pooled_tail <- sapply(factors_audit, function(f)
-  round(posterior::ess_tail(chain_matrix(f))))
+# Pooled ESS across all chains (posterior::ess_bulk / ess_tail), computed in R/analysis.R
+ess_pooled_bulk <- res$ess_bulk
+ess_pooled_tail <- res$ess_tail
 
 n_total <- nrow(draws1_clean) * length(draws_clean)
 
@@ -347,11 +307,7 @@ tibble(
 #| label: ess-findings-stats
 #| echo: false
 
-ess_ref <- round(c(
-  posterior::ess_basic(draws1_clean$Tech_Growth),
-  posterior::ess_basic(draws1_clean$US_Treas_10Y),
-  posterior::ess_basic(draws1_clean$US_LargeCap)
-), 1)
+ess_ref <- unname(res$ess_basic)
 
 eff_tech  <- sprintf("%.1f%%", ess_tech / nrow(draws1_clean) * 100)
 ess_min   <- min(ess_tech, ess_treas, ess_large)

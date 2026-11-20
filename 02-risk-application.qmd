@@ -3,16 +3,8 @@ title: "10-Factor Portfolio Risk & Tail Estimation"
 subtitle: "Evaluating Parameter Uncertainty in Expected Returns Against Analytical Benchmarks"
 ---
 
-### Introduction
-
-This chapter transitions from two-dimensional toy mechanics to a multi-asset portfolio comprising ten correlated risk factor exposures—spanning core equity betas, corporate credit carry, duration hedges, and commodities. 
-
-To provide a mathematically rigorous audit baseline, we formulate a Bayesian return model with a known closed-form solution. We model daily returns as multivariate normal $\mathbf{R} \sim \mathcal{N}(\boldsymbol{\mu}, \mathbf{\Sigma})$ with a diffuse Gaussian prior on the mean vector $\boldsymbol{\mu} \sim \mathcal{N}(\mathbf{0}, 10^3 \mathbf{I})$ and condition the covariance matrix on the empirical sample estimate $\mathbf{\Sigma} = \hat{\mathbf{\Sigma}}_{\text{emp}}$. Under this conjugate structure, the joint posterior distribution of expected returns is analytically known:
-$$\boldsymbol{\mu} \mid \mathbf{R}, \mathbf{\Sigma} \sim \mathcal{N}\left(\bar{\mathbf{x}}, \frac{1}{n} \mathbf{\Sigma}\right)$$
-
-While a closed-form solution exists for this specific Gaussian model, using it as our target allows us to directly benchmark MCMC performance. We can compare the empirical draws, standard errors, and credible intervals from our first-principles Metropolis sampler directly against the analytical truth.
-
-```{r setup, echo = TRUE, message = FALSE, warning = FALSE}
+```{r setup}
+#| include: false
 knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 
 library(dplyr)
@@ -20,49 +12,42 @@ library(gt)
 library(scales)
 library(ggplot2)
 
+source("R/generate_data.R")
 source("R/metropolis_sampler.R")
 source("R/risk_functions.R")
+source("R/diagnostics.R")
 source("R/plots.R")
+source("R/analysis.R")
 
-# 1. Ingest synthetic book fixture and build log-posterior
-model_fixture <- build_risk_target("data/synthetic_returns.csv")
+# Run the shared 10-factor analysis (four chains, risk table, exact benchmark, diagnostics)
+res <- run_analysis()
+s   <- res$settings
 
-# 2. Run 10-dimensional MCMC chain
-init_theta <- rep(0, model_fixture$d)
-names(init_theta) <- model_fixture$asset_names
+model_fixture   <- res$fixture
+post_burn_draws <- res$post_burn
+risk_table      <- res$risk_table
+gen             <- synthetic_params()
 
-chain_10d <- run_metropolis(
-  target_log_posterior = model_fixture$target_fn,
-  initial_theta = init_theta,
-  iterations = 3000,
-  proposal_sd = 0.00032,
-  seed = 42
-)
-
-# 3. Discard first 500 draws as burn-in
-post_burn_draws <- chain_10d$draws %>% slice_tail(n = 2500)
-
-# 4. Tail risk evaluation across equal-weighted portfolio
-weights_eq <- rep(0.10, 10)
-risk_table <- evaluate_portfolio_tail_risk(
-  draws_df = post_burn_draws,
-  weights = weights_eq,
-  cov_mat = model_fixture$cov_emp,
-  alpha = 0.95
-)
-
-# 5. Pre-formatted text variables for dynamic inline reporting
-acc_rate_txt   <- sprintf("%.1f%%", chain_10d$acceptance_rate * 100)
-var_mean_txt   <- sprintf("%.2f%%", risk_table$mean_estimate[1] * 100)
-var_ci_txt     <- sprintf("[%.2f%%, %.2f%%]", risk_table$ci_05[1] * 100, risk_table$ci_95[1] * 100)
-es_mean_txt    <- sprintf("%.2f%%", risk_table$mean_estimate[2] * 100)
-es_ci_txt      <- sprintf("[%.2f%%, %.2f%%]", risk_table$ci_05[2] * 100, risk_table$ci_95[2] * 100)
-n_draws_txt    <- comma(nrow(post_burn_draws))
-
+# Pre-formatted text variables for inline reporting
+pct2         <- function(x, digits = 2) sprintf(paste0("%.", digits, "f%%"), x * 100)
+alpha_lbl    <- sprintf("%.0f\\%%", s$alpha * 100)
+acc_rate_txt <- pct2(res$acceptance_rate, 1)
+n_draws_txt  <- comma(res$n_keep)
+prior_exp    <- round(-log10(model_fixture$inv_prior_var))
 ```
 
+### Introduction
+
+This chapter transitions from two-dimensional toy mechanics to a multi-asset portfolio comprising `r xfun::numbers_to_words(res$d)` correlated risk factor exposures—spanning core equity betas, corporate credit carry, duration hedges, and commodities. 
+
+To provide a mathematically rigorous audit baseline, we formulate a Bayesian return model with a known closed-form solution. We model daily returns as multivariate normal $\mathbf{R} \sim \mathcal{N}(\boldsymbol{\mu}, \mathbf{\Sigma})$ with a diffuse Gaussian prior on the mean vector $\boldsymbol{\mu} \sim \mathcal{N}(\mathbf{0}, 10^{`r prior_exp`} \mathbf{I})$ and condition the covariance matrix on the empirical sample estimate $\mathbf{\Sigma} = \hat{\mathbf{\Sigma}}_{\text{emp}}$. Under this conjugate structure, the joint posterior distribution of expected returns is analytically known:
+$$\boldsymbol{\mu} \mid \mathbf{R}, \mathbf{\Sigma} \sim \mathcal{N}\left(\bar{\mathbf{x}}, \frac{1}{n} \mathbf{\Sigma}\right)$$
+
+While a closed-form solution exists for this specific Gaussian model, using it as our target allows us to directly benchmark MCMC performance. We can compare the empirical draws, standard errors, and credible intervals from our first-principles Metropolis sampler directly against the analytical truth.
+
+
 ### Sampling the 10-Factor Joint Posterior
-The sampler processes 250 trading days of observed returns across all 10 assets simultaneously. Starting cold at $\boldsymbol{\mu}_0 = \mathbf{0}$, the chain completes 3,000 iterations, discarding the first 500 iterations to eliminate initialization bias.
+The sampler processes `r res$n_obs` trading days of observed returns across all `r res$d` assets simultaneously. Starting cold at $\boldsymbol{\mu}_0 = \mathbf{0}$, the chain completes `r comma(s$n_iter)` iterations, discarding the first `r comma(s$burn_in)` iterations to eliminate initialization bias.
 The chain operates at an empirical acceptance rate of `{r} acc_rate_txt`.
 
 ```{r factor-risk-table, echo = TRUE}
@@ -85,18 +70,33 @@ risk_table %>%
 ```
 
 
+```{r}
+#| label: tail-context-stats
+#| echo: false
+pct_tex <- function(x) sprintf("%.2f\\%%", x * 100)
+var_lo_txt    <- pct_tex(risk_table$ci_05[1])
+var_hi_txt    <- pct_tex(risk_table$ci_95[1])
+var_spread_bp <- round((risk_table$ci_95[1] - risk_table$ci_05[1]) * 1e4)
+var_mean_tex  <- pct_tex(risk_table$mean_estimate[1])
+es_mean_tex   <- pct_tex(risk_table$mean_estimate[2])
+es_var_ratio  <- sprintf("%.2f", risk_table$mean_estimate[2] / risk_table$mean_estimate[1])
+k_var_txt     <- sprintf("%.3f", res$exact$k_var)
+k_es_txt      <- sprintf("%.3f", res$exact$k_es)
+z_ci_txt      <- sprintf("%.3f", res$exact$z_ci)
+```
+
 #### Context: Isolating Parameter Risk in the Mean Vector
 Because the return distribution is modeled as multivariate normal and $\mathbf{\Sigma}$ is fixed at the sample estimate, the portfolio tail metrics reflect the properties of Gaussian loss distributions under estimation uncertainty:
 
-1. **Mean Uncertainty Bounds ($\text{VaR}_{95\%}$):** For an equal-weighted portfolio, parametric Value at Risk is governed by $\text{VaR}_{95\%} \approx -\mathbf{w}'\boldsymbol{\mu} + 1.645 \cdot \sigma_p$. Because covariance is held constant, the 12 basis point spread between the 5th and 95th percentiles ($0.99\%$ to $1.11\%$) reflects the estimation uncertainty of the portfolio mean alone ($\pm 1.645 \cdot \sigma_p / \sqrt{n}$), setting aside covariance uncertainty.
-2. **Expected Shortfall Ratio ($\text{ES}_{95\%}$):** The ratio of Expected Shortfall to Value at Risk ($1.33\% / 1.05\% \approx 1.27$  ) reflects standard Gaussian tail expectation constants ($\approx 2.063 / 1.645$), adjusted for the portfolio drift. Under a normal likelihood, this metric captures linear downside expectation rather than excess kurtosis or heavy-tailed structural shocks.
+1. **Mean Uncertainty Bounds ($\text{VaR}_{`r alpha_lbl`}$):** For an equal-weighted portfolio, parametric Value at Risk is governed by $\text{VaR}_{`r alpha_lbl`} \approx -\mathbf{w}'\boldsymbol{\mu} + `r k_var_txt` \cdot \sigma_p$. Because covariance is held constant, the `r var_spread_bp` basis point spread between the 5th and 95th percentiles ($`r var_lo_txt`$ to $`r var_hi_txt`$) reflects the estimation uncertainty of the portfolio mean alone ($\pm `r z_ci_txt` \cdot \sigma_p / \sqrt{n}$), setting aside covariance uncertainty.
+2. **Expected Shortfall Ratio ($\text{ES}_{`r alpha_lbl`}$):** The ratio of Expected Shortfall to Value at Risk ($`r es_mean_tex` / `r var_mean_tex` \approx `r es_var_ratio`$) reflects standard Gaussian tail expectation constants ($\approx `r k_es_txt` / `r k_var_txt`$), adjusted for the portfolio drift. Under a normal likelihood, this metric captures linear downside expectation rather than excess kurtosis or heavy-tailed structural shocks.
 
 ### Benchmarking MCMC Against the Exact Posterior
 
 Because this model is conjugate, the exact posterior is known. With the 
-diffuse prior \\(\\boldsymbol{\\mu} \\sim \\mathcal{N}(\\mathbf{0}, 10^3\\mathbf{I})\\), 
+diffuse prior \\(\\boldsymbol{\\mu} \\sim \\mathcal{N}(\\mathbf{0}, 10^{`r prior_exp`}\\mathbf{I})\\), 
 the posterior is Gaussian with covariance 
-\\(\\mathbf{V} = (n\\hat{\\Sigma}^{-1} + 10^{-3}\\mathbf{I})^{-1}\\). Portfolio VaR and 
+\\(\\mathbf{V} = (n\\hat{\\Sigma}^{-1} + 10^{-`r prior_exp`}\\mathbf{I})^{-1}\\). Portfolio VaR and 
 ES are linear in \\(\\boldsymbol{\\mu}\\), so their exact posteriors are also normal. 
 That lets us check every MCMC output against the true answer.
 
@@ -104,31 +104,8 @@ That lets us check every MCMC output against the true answer.
 #| label: exact-benchmark
 #| echo: false
 
-R_mat <- model_fixture$returns_mat
-S     <- model_fixture$cov_emp
-n_obs <- nrow(R_mat)
-d     <- model_fixture$d
-S_inv <- solve(S)
-
-# Exact posterior of mu (matches prior used in build_risk_target)
-V_post <- solve(n_obs * S_inv + 1e-3 * diag(d))
-m_post <- as.numeric(V_post %*% (S_inv %*% colSums(R_mat)))
-names(m_post) <- model_fixture$asset_names
-sd_post <- sqrt(diag(V_post))
-
-# Exact posterior of portfolio VaR and ES
-w      <- weights_eq
-sig_p  <- sqrt(as.numeric(t(w) %*% S %*% w))
-mu_p   <- sum(w * m_post)
-sd_mup <- sqrt(as.numeric(t(w) %*% V_post %*% w))
-k_var  <- qnorm(0.95)
-k_es   <- dnorm(qnorm(0.95)) / 0.05
-z90    <- qnorm(0.95)
-
-exact_var <- -mu_p + k_var * sig_p
-exact_es  <- -mu_p + k_es  * sig_p
-
-fmt_ci <- function(lo, hi) sprintf("%.2f%% – %.2f%%", lo * 100, hi * 100)
+ex <- res$exact
+fmt_ci <- function(ci) sprintf("%.2f%% – %.2f%%", ci[1] * 100, ci[2] * 100)
 ```
 
 ```{r}
@@ -136,25 +113,23 @@ fmt_ci <- function(lo, hi) sprintf("%.2f%% – %.2f%%", lo * 100, hi * 100)
 #| echo: false
 
 tail_bench <- tibble(
-  Metric = c("VaR 95% — mean", "VaR 95% — 90% interval",
-             "ES 95% — mean",  "ES 95% — 90% interval"),
+  Metric = c(sprintf("VaR %.0f%% — mean", s$alpha * 100), sprintf("VaR %.0f%% — 90%% interval", s$alpha * 100),
+             sprintf("ES %.0f%% — mean", s$alpha * 100),  sprintf("ES %.0f%% — 90%% interval", s$alpha * 100)),
   MCMC = c(
     sprintf("%.3f%%", risk_table$mean_estimate[1] * 100),
-    fmt_ci(risk_table$ci_05[1], risk_table$ci_95[1]),
+    fmt_ci(c(risk_table$ci_05[1], risk_table$ci_95[1])),
     sprintf("%.3f%%", risk_table$mean_estimate[2] * 100),
-    fmt_ci(risk_table$ci_05[2], risk_table$ci_95[2])
+    fmt_ci(c(risk_table$ci_05[2], risk_table$ci_95[2]))
   ),
   Exact = c(
-    sprintf("%.3f%%", exact_var * 100),
-    fmt_ci(exact_var - z90 * sd_mup, exact_var + z90 * sd_mup),
-    sprintf("%.3f%%", exact_es * 100),
-    fmt_ci(exact_es - z90 * sd_mup, exact_es + z90 * sd_mup)
+    sprintf("%.3f%%", ex$var * 100),
+    fmt_ci(ex$var_ci),
+    sprintf("%.3f%%", ex$es * 100),
+    fmt_ci(ex$es_ci)
   )
 )
 
-# Interval width ratio (MCMC / exact), VaR row
-width_ratio <- (risk_table$ci_95[1] - risk_table$ci_05[1]) / (2 * z90 * sd_mup)
-
+width_ratio <- res$width_ratio
 
 tail_bench %>%
   gt() %>%
@@ -169,19 +144,10 @@ tail_bench %>%
 #| label: tbl-factor-benchmark
 #| echo: false
 
-draws_mat <- as.matrix(post_burn_draws[, model_fixture$asset_names])
-
-factor_bench <- tibble(
-  Factor     = model_fixture$asset_names,
-  MCMC_Mean  = colMeans(draws_mat),
-  Exact_Mean = m_post,
-  MCMC_SD    = apply(draws_mat, 2, sd),
-  Exact_SD   = sd_post
-) %>%
-  mutate(
-    SD_Ratio      = MCMC_SD / Exact_SD,
-    Mean_Error_SD = (MCMC_Mean - Exact_Mean) / Exact_SD
-  )
+factor_bench <- res$factor_bench
+under      <- factor_bench |> filter(SD_Ratio < 1)
+n_under    <- nrow(under)
+sd_rng     <- sprintf("%.2f–%.2f", min(under$SD_Ratio), max(under$SD_Ratio))
 
 factor_bench %>%
   gt() %>%
@@ -207,7 +173,7 @@ narrower than they should be. The MCMC VaR interval is about
 `r sprintf("%.0f%%", width_ratio * 100)` of the exact width, so the 
 sampler understates parameter uncertainty.
 
-Nine of ten factors under-disperse (SD ratio 0.82–0.97). The pattern is 
+`r stringr::str_to_sentence(xfun::numbers_to_words(n_under))` of `r xfun::numbers_to_words(res$d)` factors under-disperse (SD ratio `r sd_rng`). The pattern is 
 broad-based rather than concentrated in the lowest-ESS factors, consistent 
 with chains that have explored only part of the posterior.
 
@@ -225,7 +191,7 @@ Because the fixture was simulated from known parameters, we can compare the samp
 plot_posterior_marginals(
   draws_df = post_burn_draws,
   asset_name = "Tech_Growth",
-  true_val = 0.110 / 252
+  true_val = gen$ann_returns[gen$asset_names == "Tech_Growth"] / 252
 )
 
 ```
@@ -235,7 +201,7 @@ plot_posterior_marginals(
 plot_posterior_marginals(
   draws_df = post_burn_draws,
   asset_name = "US_Treas_10Y",
-  true_val = 0.035 / 252
+  true_val = gen$ann_returns[gen$asset_names == "US_Treas_10Y"] / 252
 )
 
 ```
@@ -247,14 +213,15 @@ plot_posterior_marginals(
 # Helper: format a daily return as a percentage string
 pct <- function(x, digits = 2) sprintf("%+.*f%%", digits, x * 100)
 
-# Exact (analytic) posterior quantities
-n_obs   <- nrow(model_fixture$returns_mat)
-x_bar   <- colMeans(model_fixture$returns_mat)
-post_sd <- sqrt(diag(model_fixture$cov_emp) / n_obs)
+# Flat-prior posterior SD (sample mean and sigma / sqrt(n))
+n_obs   <- res$n_obs
+x_bar   <- res$post_center
+post_sd <- res$post_sd
 
-# True values used to generate the data (from R/generate_data.R)
-true_tech  <- 0.110 / 252
-true_treas <- 0.035 / 252
+# True values used to generate the data (from synthetic_params() in R/generate_data.R)
+true_ann   <- setNames(gen$ann_returns, gen$asset_names)
+true_tech  <- true_ann[["Tech_Growth"]] / 252
+true_treas <- true_ann[["US_Treas_10Y"]] / 252
 
 # --- Tech Growth ---
 tech_mean  <- mean(post_burn_draws$Tech_Growth)          # MCMC posterior mean
@@ -269,8 +236,10 @@ treas_ci   <- quantile(post_burn_draws$US_Treas_10Y, c(0.05, 0.95))
 treas_sd   <- post_sd["US_Treas_10Y"]
 treas_z    <- (x_bar["US_Treas_10Y"] - true_treas) / treas_sd
 
-# Days of data needed to shrink Tech's posterior SD to 0.01% per day
-days_needed <- ceiling((sqrt(diag(model_fixture$cov_emp))["Tech_Growth"] / 0.0001)^2)
+# Days of data needed to shrink Tech's posterior SD to the target below
+target_sd   <- 0.0001
+days_needed <- ceiling((sqrt(diag(model_fixture$cov_emp))["Tech_Growth"] / target_sd)^2)
+tech_sd_to_mean <- tech_sd / true_tech
 ```
 
 **Understanding the Marginal Density Plots**
@@ -279,7 +248,7 @@ days_needed <- ceiling((sqrt(diag(model_fixture$cov_emp))["Tech_Growth"] / 0.000
 approximately `r sprintf("%.2f%%", tech_mean*100)` daily, with a posterior standard 
 deviation of about `r sprintf("%.2f%%", tech_sd*100)`. The 90% credible interval runs 
 from `r pct(tech_ci[1])` to `r pct(tech_ci[2])`. The true value used 
-to generate the data, `r pct(true_tech, 3)` daily (+11.0% annualized), 
+to generate the data, `r pct(true_tech, 3)` daily (`r sprintf("%+.1f%%", true_ann[["Tech_Growth"]] * 100)` annualized), 
 lies about `r sprintf("%.1f", tech_z)` posterior standard deviations 
 below the center.
 
@@ -294,11 +263,11 @@ credible interval of `r pct(treas_ci[1])` to `r pct(treas_ci[2])`.
 The true value (`r pct(true_treas, 3)` daily) lies about 
 `r sprintf("%.1f", abs(treas_z))` standard deviations from the center.
 
-Narrowing Tech Growth's uncertainty to 0.01% daily would take about 
+Narrowing Tech Growth's uncertainty to `r pct2(target_sd)` daily would take about 
 `r format(days_needed, big.mark = ",")` trading days of data.
 
 ::: {.callout-important icon = false}
 ## Key Takeaway: Parameter Recovery Is a Data Problem, Not a Sampler Problem
-MCMC recovers the **posterior**, not the **truth**. With 250 daily observations, mean returns are poorly identified: Tech Growth's posterior standard deviation (≈0.10% daily) is more than twice its true mean. Narrowing that uncertainty to about 0.01% daily would take roughly  `r format(days_needed, big.mark=",")` trading days of data. For risk managers, a year of history can't reliably tell a high-drift asset from a low-drift one. That estimation uncertainty is exactly what the VaR and ES credible intervals are meant to capture.
+MCMC recovers the **posterior**, not the **truth**. With `r n_obs` daily observations, mean returns are poorly identified: Tech Growth's posterior standard deviation (≈`r pct2(tech_sd)` daily) is `r sprintf("%.1f", tech_sd_to_mean)` times its true mean. Narrowing that uncertainty to about `r pct2(target_sd)` daily would take roughly  `r format(days_needed, big.mark=",")` trading days of data. For risk managers, a year of history can't reliably tell a high-drift asset from a low-drift one. That estimation uncertainty is exactly what the VaR and ES credible intervals are meant to capture.
 :::
 

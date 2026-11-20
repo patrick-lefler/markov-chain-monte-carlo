@@ -43,8 +43,9 @@ compute_log_posterior <- function(theta, returns_mat, inv_sigma, prior_mu = 0, i
 #' Factory: Build Target Log-Posterior Function Bound to Synthetic Return Matrix
 #'
 #' @param csv_path Path to the frozen fixture data/synthetic_returns.csv
-#' @return A list with the target function, asset names, and empirical covariance
-build_risk_target <- function(csv_path = "data/synthetic_returns.csv") {
+#' @param inv_prior_var Prior precision for each factor mean (prior is N(0, I / inv_prior_var))
+#' @return A list with the target function, asset names, empirical covariance and prior precision
+build_risk_target <- function(csv_path = "data/synthetic_returns.csv", inv_prior_var = 1e-3) {
   df <- readr::read_csv(csv_path, show_col_types = FALSE)
   returns_mat <- as.matrix(df %>% select(-trading_day))
   asset_names <- colnames(returns_mat)
@@ -59,7 +60,7 @@ build_risk_target <- function(csv_path = "data/synthetic_returns.csv") {
       returns_mat = returns_mat,
       inv_sigma = inv_sigma,
       prior_mu = rep(0, d),
-      inv_prior_var = 1e-3
+      inv_prior_var = inv_prior_var
     )
   }
   
@@ -68,7 +69,8 @@ build_risk_target <- function(csv_path = "data/synthetic_returns.csv") {
     asset_names = asset_names,
     returns_mat = returns_mat,
     cov_emp     = cov_emp,
-    d           = d
+    d           = d,
+    inv_prior_var = inv_prior_var
   )
 }
 
