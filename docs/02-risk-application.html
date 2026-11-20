@@ -233,58 +233,8 @@ window.Quarto = {
 <section id="introduction" class="level3">
 <h3 class="anchored" data-anchor-id="introduction">Introduction</h3>
 <p>This chapter transitions from two-dimensional toy mechanics to a multi-asset portfolio comprising ten correlated risk factor exposures—spanning core equity betas, corporate credit carry, duration hedges, and commodities.</p>
-<p>To provide a mathematically rigorous audit baseline, we formulate a Bayesian return model with a known closed-form solution. We model daily returns as multivariate normal <span class="math inline">\(\mathbf{R} \sim \mathcal{N}(\boldsymbol{\mu}, \mathbf{\Sigma})\)</span> with a diffuse Gaussian prior on the mean vector <span class="math inline">\(\boldsymbol{\mu} \sim \mathcal{N}(\mathbf{0}, 10^3 \mathbf{I})\)</span> and condition the covariance matrix on the empirical sample estimate <span class="math inline">\(\mathbf{\Sigma} = \hat{\mathbf{\Sigma}}_{\text{emp}}\)</span>. Under this conjugate structure, the joint posterior distribution of expected returns is analytically known: <span class="math display">\[\boldsymbol{\mu} \mid \mathbf{R}, \mathbf{\Sigma} \sim \mathcal{N}\left(\bar{\mathbf{x}}, \frac{1}{n} \mathbf{\Sigma}\right)\]</span></p>
+<p>To provide a mathematically rigorous audit baseline, we formulate a Bayesian return model with a known closed-form solution. We model daily returns as multivariate normal <span class="math inline">\(\mathbf{R} \sim \mathcal{N}(\boldsymbol{\mu}, \mathbf{\Sigma})\)</span> with a diffuse Gaussian prior on the mean vector <span class="math inline">\(\boldsymbol{\mu} \sim \mathcal{N}(\mathbf{0}, 10^{3} \mathbf{I})\)</span> and condition the covariance matrix on the empirical sample estimate <span class="math inline">\(\mathbf{\Sigma} = \hat{\mathbf{\Sigma}}_{\text{emp}}\)</span>. Under this conjugate structure, the joint posterior distribution of expected returns is analytically known: <span class="math display">\[\boldsymbol{\mu} \mid \mathbf{R}, \mathbf{\Sigma} \sim \mathcal{N}\left(\bar{\mathbf{x}}, \frac{1}{n} \mathbf{\Sigma}\right)\]</span></p>
 <p>While a closed-form solution exists for this specific Gaussian model, using it as our target allows us to directly benchmark MCMC performance. We can compare the empirical draws, standard errors, and credible intervals from our first-principles Metropolis sampler directly against the analytical truth.</p>
-<div class="cell">
-<details class="code-fold">
-<summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span>opts_chunk<span class="sc">$</span><span class="fu">set</span>(<span class="at">echo =</span> <span class="cn">TRUE</span>, <span class="at">message =</span> <span class="cn">FALSE</span>, <span class="at">warning =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(gt)</span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(scales)</span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"R/metropolis_sampler.R"</span>)</span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"R/risk_functions.R"</span>)</span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"R/plots.R"</span>)</span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. Ingest synthetic book fixture and build log-posterior</span></span>
-<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>model_fixture <span class="ot">&lt;-</span> <span class="fu">build_risk_target</span>(<span class="st">"data/synthetic_returns.csv"</span>)</span>
-<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. Run 10-dimensional MCMC chain</span></span>
-<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>init_theta <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="dv">0</span>, model_fixture<span class="sc">$</span>d)</span>
-<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(init_theta) <span class="ot">&lt;-</span> model_fixture<span class="sc">$</span>asset_names</span>
-<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>chain_10d <span class="ot">&lt;-</span> <span class="fu">run_metropolis</span>(</span>
-<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>  <span class="at">target_log_posterior =</span> model_fixture<span class="sc">$</span>target_fn,</span>
-<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>  <span class="at">initial_theta =</span> init_theta,</span>
-<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>  <span class="at">iterations =</span> <span class="dv">3000</span>,</span>
-<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>  <span class="at">proposal_sd =</span> <span class="fl">0.00032</span>,</span>
-<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>  <span class="at">seed =</span> <span class="dv">42</span></span>
-<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a><span class="co"># 3. Discard first 500 draws as burn-in</span></span>
-<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>post_burn_draws <span class="ot">&lt;-</span> chain_10d<span class="sc">$</span>draws <span class="sc">%&gt;%</span> <span class="fu">slice_tail</span>(<span class="at">n =</span> <span class="dv">2500</span>)</span>
-<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a><span class="co"># 4. Tail risk evaluation across equal-weighted portfolio</span></span>
-<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>weights_eq <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="fl">0.10</span>, <span class="dv">10</span>)</span>
-<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>risk_table <span class="ot">&lt;-</span> <span class="fu">evaluate_portfolio_tail_risk</span>(</span>
-<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>  <span class="at">draws_df =</span> post_burn_draws,</span>
-<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>  <span class="at">weights =</span> weights_eq,</span>
-<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>  <span class="at">cov_mat =</span> model_fixture<span class="sc">$</span>cov_emp,</span>
-<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>  <span class="at">alpha =</span> <span class="fl">0.95</span></span>
-<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a><span class="co"># 5. Pre-formatted text variables for dynamic inline reporting</span></span>
-<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a>acc_rate_txt   <span class="ot">&lt;-</span> <span class="fu">sprintf</span>(<span class="st">"%.1f%%"</span>, chain_10d<span class="sc">$</span>acceptance_rate <span class="sc">*</span> <span class="dv">100</span>)</span>
-<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a>var_mean_txt   <span class="ot">&lt;-</span> <span class="fu">sprintf</span>(<span class="st">"%.2f%%"</span>, risk_table<span class="sc">$</span>mean_estimate[<span class="dv">1</span>] <span class="sc">*</span> <span class="dv">100</span>)</span>
-<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a>var_ci_txt     <span class="ot">&lt;-</span> <span class="fu">sprintf</span>(<span class="st">"[%.2f%%, %.2f%%]"</span>, risk_table<span class="sc">$</span>ci_05[<span class="dv">1</span>] <span class="sc">*</span> <span class="dv">100</span>, risk_table<span class="sc">$</span>ci_95[<span class="dv">1</span>] <span class="sc">*</span> <span class="dv">100</span>)</span>
-<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a>es_mean_txt    <span class="ot">&lt;-</span> <span class="fu">sprintf</span>(<span class="st">"%.2f%%"</span>, risk_table<span class="sc">$</span>mean_estimate[<span class="dv">2</span>] <span class="sc">*</span> <span class="dv">100</span>)</span>
-<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a>es_ci_txt      <span class="ot">&lt;-</span> <span class="fu">sprintf</span>(<span class="st">"[%.2f%%, %.2f%%]"</span>, risk_table<span class="sc">$</span>ci_05[<span class="dv">2</span>] <span class="sc">*</span> <span class="dv">100</span>, risk_table<span class="sc">$</span>ci_95[<span class="dv">2</span>] <span class="sc">*</span> <span class="dv">100</span>)</span>
-<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>n_draws_txt    <span class="ot">&lt;-</span> <span class="fu">comma</span>(<span class="fu">nrow</span>(post_burn_draws))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-</details>
-</div>
 </section>
 <section id="sampling-the-10-factor-joint-posterior" class="level3">
 <h3 class="anchored" data-anchor-id="sampling-the-10-factor-joint-posterior">Sampling the 10-Factor Joint Posterior</h3>
@@ -292,39 +242,39 @@ window.Quarto = {
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>risk_table <span class="sc">%&gt;%</span></span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">gt</span>() <span class="sc">%&gt;%</span></span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_header</span>(</span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="fu">md</span>(<span class="st">"**10-Asset Portfolio Tail Risk Estimates (1-Day Horizon)**"</span>),</span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">subtitle =</span> <span class="st">"Posterior mean risk metrics and 90% Bayesian credible intervals under parameter uncertainty"</span></span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cols_label</span>(</span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">metric =</span> <span class="st">"Tail Risk Measure"</span>,</span>
-<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">mean_estimate =</span> <span class="st">"Posterior Mean"</span>,</span>
-<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">ci_05 =</span> <span class="st">"5th Percentile"</span>,</span>
-<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">ci_95 =</span> <span class="st">"95th Percentile"</span></span>
-<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
-<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">fmt_percent</span>(<span class="at">columns =</span> <span class="fu">c</span>(mean_estimate, ci_05, ci_95), <span class="at">decimals =</span> <span class="dv">2</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_options</span>(<span class="at">table.font.size =</span> <span class="dv">12</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>risk_table <span class="sc">%&gt;%</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">gt</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_header</span>(</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="fu">md</span>(<span class="st">"**10-Asset Portfolio Tail Risk Estimates (1-Day Horizon)**"</span>),</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">subtitle =</span> <span class="st">"Posterior mean risk metrics and 90% Bayesian credible intervals under parameter uncertainty"</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cols_label</span>(</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">metric =</span> <span class="st">"Tail Risk Measure"</span>,</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">mean_estimate =</span> <span class="st">"Posterior Mean"</span>,</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">ci_05 =</span> <span class="st">"5th Percentile"</span>,</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">ci_95 =</span> <span class="st">"95th Percentile"</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">fmt_percent</span>(<span class="at">columns =</span> <span class="fu">c</span>(mean_estimate, ci_05, ci_95), <span class="at">decimals =</span> <span class="dv">2</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_options</span>(<span class="at">table.font.size =</span> <span class="dv">12</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output-display">
-<div id="qsvimvxyzs" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
-<style>#qsvimvxyzs table {
+<div id="dippmnqvkd" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<style>#dippmnqvkd table {
   font-family: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-#qsvimvxyzs thead, #qsvimvxyzs tbody, #qsvimvxyzs tfoot, #qsvimvxyzs tr, #qsvimvxyzs td, #qsvimvxyzs th {
+#dippmnqvkd thead, #dippmnqvkd tbody, #dippmnqvkd tfoot, #dippmnqvkd tr, #dippmnqvkd td, #dippmnqvkd th {
   border-style: none;
 }
 
-#qsvimvxyzs p {
+#dippmnqvkd p {
   margin: 0;
   padding: 0;
 }
 
-#qsvimvxyzs .gt_table {
+#dippmnqvkd .gt_table {
   display: table;
   border-collapse: collapse;
   line-height: normal;
@@ -350,12 +300,12 @@ window.Quarto = {
   border-left-color: #D3D3D3;
 }
 
-#qsvimvxyzs .gt_caption {
+#dippmnqvkd .gt_caption {
   padding-top: 4px;
   padding-bottom: 4px;
 }
 
-#qsvimvxyzs .gt_title {
+#dippmnqvkd .gt_title {
   color: #333333;
   font-size: 125%;
   font-weight: initial;
@@ -367,7 +317,7 @@ window.Quarto = {
   border-bottom-width: 0;
 }
 
-#qsvimvxyzs .gt_subtitle {
+#dippmnqvkd .gt_subtitle {
   color: #333333;
   font-size: 85%;
   font-weight: initial;
@@ -379,7 +329,7 @@ window.Quarto = {
   border-top-width: 0;
 }
 
-#qsvimvxyzs .gt_heading {
+#dippmnqvkd .gt_heading {
   background-color: #FFFFFF;
   text-align: center;
   border-bottom-color: #FFFFFF;
@@ -391,13 +341,13 @@ window.Quarto = {
   border-right-color: #D3D3D3;
 }
 
-#qsvimvxyzs .gt_bottom_border {
+#dippmnqvkd .gt_bottom_border {
   border-bottom-style: solid;
   border-bottom-width: 2px;
   border-bottom-color: #D3D3D3;
 }
 
-#qsvimvxyzs .gt_col_headings {
+#dippmnqvkd .gt_col_headings {
   border-top-style: solid;
   border-top-width: 2px;
   border-top-color: #D3D3D3;
@@ -412,7 +362,7 @@ window.Quarto = {
   border-right-color: #D3D3D3;
 }
 
-#qsvimvxyzs .gt_col_heading {
+#dippmnqvkd .gt_col_heading {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -432,7 +382,7 @@ window.Quarto = {
   overflow-x: hidden;
 }
 
-#qsvimvxyzs .gt_column_spanner_outer {
+#dippmnqvkd .gt_column_spanner_outer {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -444,15 +394,15 @@ window.Quarto = {
   padding-right: 4px;
 }
 
-#qsvimvxyzs .gt_column_spanner_outer:first-child {
+#dippmnqvkd .gt_column_spanner_outer:first-child {
   padding-left: 0;
 }
 
-#qsvimvxyzs .gt_column_spanner_outer:last-child {
+#dippmnqvkd .gt_column_spanner_outer:last-child {
   padding-right: 0;
 }
 
-#qsvimvxyzs .gt_column_spanner {
+#dippmnqvkd .gt_column_spanner {
   border-bottom-style: solid;
   border-bottom-width: 2px;
   border-bottom-color: #D3D3D3;
@@ -464,11 +414,11 @@ window.Quarto = {
   width: 100%;
 }
 
-#qsvimvxyzs .gt_spanner_row {
+#dippmnqvkd .gt_spanner_row {
   border-bottom-style: hidden;
 }
 
-#qsvimvxyzs .gt_group_heading {
+#dippmnqvkd .gt_group_heading {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -494,7 +444,7 @@ window.Quarto = {
   text-align: left;
 }
 
-#qsvimvxyzs .gt_empty_group_heading {
+#dippmnqvkd .gt_empty_group_heading {
   padding: 0.5px;
   color: #333333;
   background-color: #FFFFFF;
@@ -509,15 +459,15 @@ window.Quarto = {
   vertical-align: middle;
 }
 
-#qsvimvxyzs .gt_from_md > :first-child {
+#dippmnqvkd .gt_from_md > :first-child {
   margin-top: 0;
 }
 
-#qsvimvxyzs .gt_from_md > :last-child {
+#dippmnqvkd .gt_from_md > :last-child {
   margin-bottom: 0;
 }
 
-#qsvimvxyzs .gt_row {
+#dippmnqvkd .gt_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -536,7 +486,7 @@ window.Quarto = {
   overflow-x: hidden;
 }
 
-#qsvimvxyzs .gt_stub {
+#dippmnqvkd .gt_stub {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -549,7 +499,7 @@ window.Quarto = {
   padding-right: 5px;
 }
 
-#qsvimvxyzs .gt_stub_row_group {
+#dippmnqvkd .gt_stub_row_group {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -563,15 +513,15 @@ window.Quarto = {
   vertical-align: top;
 }
 
-#qsvimvxyzs .gt_row_group_first td {
+#dippmnqvkd .gt_row_group_first td {
   border-top-width: 2px;
 }
 
-#qsvimvxyzs .gt_row_group_first th {
+#dippmnqvkd .gt_row_group_first th {
   border-top-width: 2px;
 }
 
-#qsvimvxyzs .gt_summary_row {
+#dippmnqvkd .gt_summary_row {
   color: #333333;
   background-color: #FFFFFF;
   text-transform: inherit;
@@ -581,16 +531,16 @@ window.Quarto = {
   padding-right: 5px;
 }
 
-#qsvimvxyzs .gt_first_summary_row {
+#dippmnqvkd .gt_first_summary_row {
   border-top-style: solid;
   border-top-color: #D3D3D3;
 }
 
-#qsvimvxyzs .gt_first_summary_row.thick {
+#dippmnqvkd .gt_first_summary_row.thick {
   border-top-width: 2px;
 }
 
-#qsvimvxyzs .gt_last_summary_row {
+#dippmnqvkd .gt_last_summary_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -600,7 +550,7 @@ window.Quarto = {
   border-bottom-color: #D3D3D3;
 }
 
-#qsvimvxyzs .gt_grand_summary_row {
+#dippmnqvkd .gt_grand_summary_row {
   color: #333333;
   background-color: #FFFFFF;
   text-transform: inherit;
@@ -610,7 +560,7 @@ window.Quarto = {
   padding-right: 5px;
 }
 
-#qsvimvxyzs .gt_first_grand_summary_row {
+#dippmnqvkd .gt_first_grand_summary_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -620,7 +570,7 @@ window.Quarto = {
   border-top-color: #D3D3D3;
 }
 
-#qsvimvxyzs .gt_last_grand_summary_row_top {
+#dippmnqvkd .gt_last_grand_summary_row_top {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -630,11 +580,11 @@ window.Quarto = {
   border-bottom-color: #D3D3D3;
 }
 
-#qsvimvxyzs .gt_striped {
+#dippmnqvkd .gt_striped {
   background-color: rgba(128, 128, 128, 0.05);
 }
 
-#qsvimvxyzs .gt_table_body {
+#dippmnqvkd .gt_table_body {
   border-top-style: solid;
   border-top-width: 2px;
   border-top-color: #D3D3D3;
@@ -643,7 +593,7 @@ window.Quarto = {
   border-bottom-color: #D3D3D3;
 }
 
-#qsvimvxyzs .gt_footnotes {
+#dippmnqvkd .gt_footnotes {
   color: #333333;
   background-color: #FFFFFF;
   border-bottom-style: none;
@@ -657,7 +607,7 @@ window.Quarto = {
   border-right-color: #D3D3D3;
 }
 
-#qsvimvxyzs .gt_footnote {
+#dippmnqvkd .gt_footnote {
   margin: 0px;
   font-size: 90%;
   padding-top: 4px;
@@ -666,7 +616,7 @@ window.Quarto = {
   padding-right: 5px;
 }
 
-#qsvimvxyzs .gt_sourcenotes {
+#dippmnqvkd .gt_sourcenotes {
   color: #333333;
   background-color: #FFFFFF;
   border-bottom-style: none;
@@ -680,7 +630,7 @@ window.Quarto = {
   border-right-color: #D3D3D3;
 }
 
-#qsvimvxyzs .gt_sourcenote {
+#dippmnqvkd .gt_sourcenote {
   font-size: 90%;
   padding-top: 4px;
   padding-bottom: 4px;
@@ -688,72 +638,72 @@ window.Quarto = {
   padding-right: 5px;
 }
 
-#qsvimvxyzs .gt_left {
+#dippmnqvkd .gt_left {
   text-align: left;
 }
 
-#qsvimvxyzs .gt_center {
+#dippmnqvkd .gt_center {
   text-align: center;
 }
 
-#qsvimvxyzs .gt_right {
+#dippmnqvkd .gt_right {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
-#qsvimvxyzs .gt_font_normal {
+#dippmnqvkd .gt_font_normal {
   font-weight: normal;
 }
 
-#qsvimvxyzs .gt_font_bold {
+#dippmnqvkd .gt_font_bold {
   font-weight: bold;
 }
 
-#qsvimvxyzs .gt_font_italic {
+#dippmnqvkd .gt_font_italic {
   font-style: italic;
 }
 
-#qsvimvxyzs .gt_super {
+#dippmnqvkd .gt_super {
   font-size: 65%;
 }
 
-#qsvimvxyzs .gt_footnote_marks {
+#dippmnqvkd .gt_footnote_marks {
   font-size: 75%;
   vertical-align: 0.4em;
   position: initial;
 }
 
-#qsvimvxyzs .gt_asterisk {
+#dippmnqvkd .gt_asterisk {
   font-size: 100%;
   vertical-align: 0;
 }
 
-#qsvimvxyzs .gt_indent_1 {
+#dippmnqvkd .gt_indent_1 {
   text-indent: 5px;
 }
 
-#qsvimvxyzs .gt_indent_2 {
+#dippmnqvkd .gt_indent_2 {
   text-indent: 10px;
 }
 
-#qsvimvxyzs .gt_indent_3 {
+#dippmnqvkd .gt_indent_3 {
   text-indent: 15px;
 }
 
-#qsvimvxyzs .gt_indent_4 {
+#dippmnqvkd .gt_indent_4 {
   text-indent: 20px;
 }
 
-#qsvimvxyzs .gt_indent_5 {
+#dippmnqvkd .gt_indent_5 {
   text-indent: 25px;
 }
 
-#qsvimvxyzs .katex-display {
+#dippmnqvkd .katex-display {
   display: inline-flex !important;
   margin-bottom: 0.75em !important;
 }
 
-#qsvimvxyzs div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
+#dippmnqvkd div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
   height: 0px !important;
 }
 </style>
@@ -797,13 +747,13 @@ window.Quarto = {
 <p>Because the return distribution is modeled as multivariate normal and <span class="math inline">\(\mathbf{\Sigma}\)</span> is fixed at the sample estimate, the portfolio tail metrics reflect the properties of Gaussian loss distributions under estimation uncertainty:</p>
 <ol type="1">
 <li><strong>Mean Uncertainty Bounds (<span class="math inline">\(\text{VaR}_{95\%}\)</span>):</strong> For an equal-weighted portfolio, parametric Value at Risk is governed by <span class="math inline">\(\text{VaR}_{95\%} \approx -\mathbf{w}'\boldsymbol{\mu} + 1.645 \cdot \sigma_p\)</span>. Because covariance is held constant, the 12 basis point spread between the 5th and 95th percentiles (<span class="math inline">\(0.99\%\)</span> to <span class="math inline">\(1.11\%\)</span>) reflects the estimation uncertainty of the portfolio mean alone (<span class="math inline">\(\pm 1.645 \cdot \sigma_p / \sqrt{n}\)</span>), setting aside covariance uncertainty.</li>
-<li><strong>Expected Shortfall Ratio (<span class="math inline">\(\text{ES}_{95\%}\)</span>):</strong> The ratio of Expected Shortfall to Value at Risk (<span class="math inline">\(1.33\% / 1.05\% \approx 1.27\)</span> ) reflects standard Gaussian tail expectation constants (<span class="math inline">\(\approx 2.063 / 1.645\)</span>), adjusted for the portfolio drift. Under a normal likelihood, this metric captures linear downside expectation rather than excess kurtosis or heavy-tailed structural shocks.</li>
+<li><strong>Expected Shortfall Ratio (<span class="math inline">\(\text{ES}_{95\%}\)</span>):</strong> The ratio of Expected Shortfall to Value at Risk (<span class="math inline">\(1.33\% / 1.05\% \approx 1.27\)</span>) reflects standard Gaussian tail expectation constants (<span class="math inline">\(\approx 2.063 / 1.645\)</span>), adjusted for the portfolio drift. Under a normal likelihood, this metric captures linear downside expectation rather than excess kurtosis or heavy-tailed structural shocks.</li>
 </ol>
 </section>
 </section>
 <section id="benchmarking-mcmc-against-the-exact-posterior" class="level3">
 <h3 class="anchored" data-anchor-id="benchmarking-mcmc-against-the-exact-posterior">Benchmarking MCMC Against the Exact Posterior</h3>
-<p>Because this model is conjugate, the exact posterior is known. With the diffuse prior \(\boldsymbol{\mu} \sim \mathcal{N}(\mathbf{0}, 10^3\mathbf{I})\), the posterior is Gaussian with covariance \(\mathbf{V} = (n\hat{\Sigma}^{-1} + 10<sup>{-3}\mathbf{I})</sup>{-1}\). Portfolio VaR and ES are linear in \(\boldsymbol{\mu}\), so their exact posteriors are also normal. That lets us check every MCMC output against the true answer.</p>
+<p>Because this model is conjugate, the exact posterior is known. With the diffuse prior \(\boldsymbol{\mu} \sim \mathcal{N}(\mathbf{0}, 10^{3}\mathbf{I})\), the posterior is Gaussian with covariance \(\mathbf{V} = (n\hat{\Sigma}^{-1} + 10<sup>{-3}\mathbf{I})</sup>{-1}\). Portfolio VaR and ES are linear in \(\boldsymbol{\mu}\), so their exact posteriors are also normal. That lets us check every MCMC output against the true answer.</p>
 <div class="cell">
 <div id="tbl-tail-benchmark" class="cell quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
@@ -812,23 +762,23 @@ Table&nbsp;1
 </figcaption>
 <div aria-describedby="tbl-tail-benchmark-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
-<div id="ldpnszdboe" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
-<style>#ldpnszdboe table {
+<div id="cvguyfelhb" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<style>#cvguyfelhb table {
   font-family: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-#ldpnszdboe thead, #ldpnszdboe tbody, #ldpnszdboe tfoot, #ldpnszdboe tr, #ldpnszdboe td, #ldpnszdboe th {
+#cvguyfelhb thead, #cvguyfelhb tbody, #cvguyfelhb tfoot, #cvguyfelhb tr, #cvguyfelhb td, #cvguyfelhb th {
   border-style: none;
 }
 
-#ldpnszdboe p {
+#cvguyfelhb p {
   margin: 0;
   padding: 0;
 }
 
-#ldpnszdboe .gt_table {
+#cvguyfelhb .gt_table {
   display: table;
   border-collapse: collapse;
   line-height: normal;
@@ -854,12 +804,12 @@ Table&nbsp;1
   border-left-color: #D3D3D3;
 }
 
-#ldpnszdboe .gt_caption {
+#cvguyfelhb .gt_caption {
   padding-top: 4px;
   padding-bottom: 4px;
 }
 
-#ldpnszdboe .gt_title {
+#cvguyfelhb .gt_title {
   color: #333333;
   font-size: 125%;
   font-weight: initial;
@@ -871,7 +821,7 @@ Table&nbsp;1
   border-bottom-width: 0;
 }
 
-#ldpnszdboe .gt_subtitle {
+#cvguyfelhb .gt_subtitle {
   color: #333333;
   font-size: 85%;
   font-weight: initial;
@@ -883,7 +833,7 @@ Table&nbsp;1
   border-top-width: 0;
 }
 
-#ldpnszdboe .gt_heading {
+#cvguyfelhb .gt_heading {
   background-color: #FFFFFF;
   text-align: center;
   border-bottom-color: #FFFFFF;
@@ -895,13 +845,13 @@ Table&nbsp;1
   border-right-color: #D3D3D3;
 }
 
-#ldpnszdboe .gt_bottom_border {
+#cvguyfelhb .gt_bottom_border {
   border-bottom-style: solid;
   border-bottom-width: 2px;
   border-bottom-color: #D3D3D3;
 }
 
-#ldpnszdboe .gt_col_headings {
+#cvguyfelhb .gt_col_headings {
   border-top-style: solid;
   border-top-width: 2px;
   border-top-color: #D3D3D3;
@@ -916,7 +866,7 @@ Table&nbsp;1
   border-right-color: #D3D3D3;
 }
 
-#ldpnszdboe .gt_col_heading {
+#cvguyfelhb .gt_col_heading {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -936,7 +886,7 @@ Table&nbsp;1
   overflow-x: hidden;
 }
 
-#ldpnszdboe .gt_column_spanner_outer {
+#cvguyfelhb .gt_column_spanner_outer {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -948,15 +898,15 @@ Table&nbsp;1
   padding-right: 4px;
 }
 
-#ldpnszdboe .gt_column_spanner_outer:first-child {
+#cvguyfelhb .gt_column_spanner_outer:first-child {
   padding-left: 0;
 }
 
-#ldpnszdboe .gt_column_spanner_outer:last-child {
+#cvguyfelhb .gt_column_spanner_outer:last-child {
   padding-right: 0;
 }
 
-#ldpnszdboe .gt_column_spanner {
+#cvguyfelhb .gt_column_spanner {
   border-bottom-style: solid;
   border-bottom-width: 2px;
   border-bottom-color: #D3D3D3;
@@ -968,11 +918,11 @@ Table&nbsp;1
   width: 100%;
 }
 
-#ldpnszdboe .gt_spanner_row {
+#cvguyfelhb .gt_spanner_row {
   border-bottom-style: hidden;
 }
 
-#ldpnszdboe .gt_group_heading {
+#cvguyfelhb .gt_group_heading {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -998,7 +948,7 @@ Table&nbsp;1
   text-align: left;
 }
 
-#ldpnszdboe .gt_empty_group_heading {
+#cvguyfelhb .gt_empty_group_heading {
   padding: 0.5px;
   color: #333333;
   background-color: #FFFFFF;
@@ -1013,15 +963,15 @@ Table&nbsp;1
   vertical-align: middle;
 }
 
-#ldpnszdboe .gt_from_md > :first-child {
+#cvguyfelhb .gt_from_md > :first-child {
   margin-top: 0;
 }
 
-#ldpnszdboe .gt_from_md > :last-child {
+#cvguyfelhb .gt_from_md > :last-child {
   margin-bottom: 0;
 }
 
-#ldpnszdboe .gt_row {
+#cvguyfelhb .gt_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1040,7 +990,7 @@ Table&nbsp;1
   overflow-x: hidden;
 }
 
-#ldpnszdboe .gt_stub {
+#cvguyfelhb .gt_stub {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -1053,7 +1003,7 @@ Table&nbsp;1
   padding-right: 5px;
 }
 
-#ldpnszdboe .gt_stub_row_group {
+#cvguyfelhb .gt_stub_row_group {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -1067,15 +1017,15 @@ Table&nbsp;1
   vertical-align: top;
 }
 
-#ldpnszdboe .gt_row_group_first td {
+#cvguyfelhb .gt_row_group_first td {
   border-top-width: 2px;
 }
 
-#ldpnszdboe .gt_row_group_first th {
+#cvguyfelhb .gt_row_group_first th {
   border-top-width: 2px;
 }
 
-#ldpnszdboe .gt_summary_row {
+#cvguyfelhb .gt_summary_row {
   color: #333333;
   background-color: #FFFFFF;
   text-transform: inherit;
@@ -1085,16 +1035,16 @@ Table&nbsp;1
   padding-right: 5px;
 }
 
-#ldpnszdboe .gt_first_summary_row {
+#cvguyfelhb .gt_first_summary_row {
   border-top-style: solid;
   border-top-color: #D3D3D3;
 }
 
-#ldpnszdboe .gt_first_summary_row.thick {
+#cvguyfelhb .gt_first_summary_row.thick {
   border-top-width: 2px;
 }
 
-#ldpnszdboe .gt_last_summary_row {
+#cvguyfelhb .gt_last_summary_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1104,7 +1054,7 @@ Table&nbsp;1
   border-bottom-color: #D3D3D3;
 }
 
-#ldpnszdboe .gt_grand_summary_row {
+#cvguyfelhb .gt_grand_summary_row {
   color: #333333;
   background-color: #FFFFFF;
   text-transform: inherit;
@@ -1114,7 +1064,7 @@ Table&nbsp;1
   padding-right: 5px;
 }
 
-#ldpnszdboe .gt_first_grand_summary_row {
+#cvguyfelhb .gt_first_grand_summary_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1124,7 +1074,7 @@ Table&nbsp;1
   border-top-color: #D3D3D3;
 }
 
-#ldpnszdboe .gt_last_grand_summary_row_top {
+#cvguyfelhb .gt_last_grand_summary_row_top {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1134,11 +1084,11 @@ Table&nbsp;1
   border-bottom-color: #D3D3D3;
 }
 
-#ldpnszdboe .gt_striped {
+#cvguyfelhb .gt_striped {
   background-color: rgba(128, 128, 128, 0.05);
 }
 
-#ldpnszdboe .gt_table_body {
+#cvguyfelhb .gt_table_body {
   border-top-style: solid;
   border-top-width: 2px;
   border-top-color: #D3D3D3;
@@ -1147,7 +1097,7 @@ Table&nbsp;1
   border-bottom-color: #D3D3D3;
 }
 
-#ldpnszdboe .gt_footnotes {
+#cvguyfelhb .gt_footnotes {
   color: #333333;
   background-color: #FFFFFF;
   border-bottom-style: none;
@@ -1161,7 +1111,7 @@ Table&nbsp;1
   border-right-color: #D3D3D3;
 }
 
-#ldpnszdboe .gt_footnote {
+#cvguyfelhb .gt_footnote {
   margin: 0px;
   font-size: 90%;
   padding-top: 4px;
@@ -1170,7 +1120,7 @@ Table&nbsp;1
   padding-right: 5px;
 }
 
-#ldpnszdboe .gt_sourcenotes {
+#cvguyfelhb .gt_sourcenotes {
   color: #333333;
   background-color: #FFFFFF;
   border-bottom-style: none;
@@ -1184,7 +1134,7 @@ Table&nbsp;1
   border-right-color: #D3D3D3;
 }
 
-#ldpnszdboe .gt_sourcenote {
+#cvguyfelhb .gt_sourcenote {
   font-size: 90%;
   padding-top: 4px;
   padding-bottom: 4px;
@@ -1192,72 +1142,72 @@ Table&nbsp;1
   padding-right: 5px;
 }
 
-#ldpnszdboe .gt_left {
+#cvguyfelhb .gt_left {
   text-align: left;
 }
 
-#ldpnszdboe .gt_center {
+#cvguyfelhb .gt_center {
   text-align: center;
 }
 
-#ldpnszdboe .gt_right {
+#cvguyfelhb .gt_right {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
-#ldpnszdboe .gt_font_normal {
+#cvguyfelhb .gt_font_normal {
   font-weight: normal;
 }
 
-#ldpnszdboe .gt_font_bold {
+#cvguyfelhb .gt_font_bold {
   font-weight: bold;
 }
 
-#ldpnszdboe .gt_font_italic {
+#cvguyfelhb .gt_font_italic {
   font-style: italic;
 }
 
-#ldpnszdboe .gt_super {
+#cvguyfelhb .gt_super {
   font-size: 65%;
 }
 
-#ldpnszdboe .gt_footnote_marks {
+#cvguyfelhb .gt_footnote_marks {
   font-size: 75%;
   vertical-align: 0.4em;
   position: initial;
 }
 
-#ldpnszdboe .gt_asterisk {
+#cvguyfelhb .gt_asterisk {
   font-size: 100%;
   vertical-align: 0;
 }
 
-#ldpnszdboe .gt_indent_1 {
+#cvguyfelhb .gt_indent_1 {
   text-indent: 5px;
 }
 
-#ldpnszdboe .gt_indent_2 {
+#cvguyfelhb .gt_indent_2 {
   text-indent: 10px;
 }
 
-#ldpnszdboe .gt_indent_3 {
+#cvguyfelhb .gt_indent_3 {
   text-indent: 15px;
 }
 
-#ldpnszdboe .gt_indent_4 {
+#cvguyfelhb .gt_indent_4 {
   text-indent: 20px;
 }
 
-#ldpnszdboe .gt_indent_5 {
+#cvguyfelhb .gt_indent_5 {
   text-indent: 25px;
 }
 
-#ldpnszdboe .katex-display {
+#cvguyfelhb .katex-display {
   display: inline-flex !important;
   margin-bottom: 0.75em !important;
 }
 
-#ldpnszdboe div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
+#cvguyfelhb div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
   height: 0px !important;
 }
 </style>
@@ -1314,23 +1264,23 @@ Table&nbsp;2
 </figcaption>
 <div aria-describedby="tbl-factor-benchmark-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
-<div id="rssfqfwjjo" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
-<style>#rssfqfwjjo table {
+<div id="nwvnvkoesq" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<style>#nwvnvkoesq table {
   font-family: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-#rssfqfwjjo thead, #rssfqfwjjo tbody, #rssfqfwjjo tfoot, #rssfqfwjjo tr, #rssfqfwjjo td, #rssfqfwjjo th {
+#nwvnvkoesq thead, #nwvnvkoesq tbody, #nwvnvkoesq tfoot, #nwvnvkoesq tr, #nwvnvkoesq td, #nwvnvkoesq th {
   border-style: none;
 }
 
-#rssfqfwjjo p {
+#nwvnvkoesq p {
   margin: 0;
   padding: 0;
 }
 
-#rssfqfwjjo .gt_table {
+#nwvnvkoesq .gt_table {
   display: table;
   border-collapse: collapse;
   line-height: normal;
@@ -1356,12 +1306,12 @@ Table&nbsp;2
   border-left-color: #D3D3D3;
 }
 
-#rssfqfwjjo .gt_caption {
+#nwvnvkoesq .gt_caption {
   padding-top: 4px;
   padding-bottom: 4px;
 }
 
-#rssfqfwjjo .gt_title {
+#nwvnvkoesq .gt_title {
   color: #333333;
   font-size: 125%;
   font-weight: initial;
@@ -1373,7 +1323,7 @@ Table&nbsp;2
   border-bottom-width: 0;
 }
 
-#rssfqfwjjo .gt_subtitle {
+#nwvnvkoesq .gt_subtitle {
   color: #333333;
   font-size: 85%;
   font-weight: initial;
@@ -1385,7 +1335,7 @@ Table&nbsp;2
   border-top-width: 0;
 }
 
-#rssfqfwjjo .gt_heading {
+#nwvnvkoesq .gt_heading {
   background-color: #FFFFFF;
   text-align: center;
   border-bottom-color: #FFFFFF;
@@ -1397,13 +1347,13 @@ Table&nbsp;2
   border-right-color: #D3D3D3;
 }
 
-#rssfqfwjjo .gt_bottom_border {
+#nwvnvkoesq .gt_bottom_border {
   border-bottom-style: solid;
   border-bottom-width: 2px;
   border-bottom-color: #D3D3D3;
 }
 
-#rssfqfwjjo .gt_col_headings {
+#nwvnvkoesq .gt_col_headings {
   border-top-style: solid;
   border-top-width: 2px;
   border-top-color: #D3D3D3;
@@ -1418,7 +1368,7 @@ Table&nbsp;2
   border-right-color: #D3D3D3;
 }
 
-#rssfqfwjjo .gt_col_heading {
+#nwvnvkoesq .gt_col_heading {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -1438,7 +1388,7 @@ Table&nbsp;2
   overflow-x: hidden;
 }
 
-#rssfqfwjjo .gt_column_spanner_outer {
+#nwvnvkoesq .gt_column_spanner_outer {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -1450,15 +1400,15 @@ Table&nbsp;2
   padding-right: 4px;
 }
 
-#rssfqfwjjo .gt_column_spanner_outer:first-child {
+#nwvnvkoesq .gt_column_spanner_outer:first-child {
   padding-left: 0;
 }
 
-#rssfqfwjjo .gt_column_spanner_outer:last-child {
+#nwvnvkoesq .gt_column_spanner_outer:last-child {
   padding-right: 0;
 }
 
-#rssfqfwjjo .gt_column_spanner {
+#nwvnvkoesq .gt_column_spanner {
   border-bottom-style: solid;
   border-bottom-width: 2px;
   border-bottom-color: #D3D3D3;
@@ -1470,11 +1420,11 @@ Table&nbsp;2
   width: 100%;
 }
 
-#rssfqfwjjo .gt_spanner_row {
+#nwvnvkoesq .gt_spanner_row {
   border-bottom-style: hidden;
 }
 
-#rssfqfwjjo .gt_group_heading {
+#nwvnvkoesq .gt_group_heading {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1500,7 +1450,7 @@ Table&nbsp;2
   text-align: left;
 }
 
-#rssfqfwjjo .gt_empty_group_heading {
+#nwvnvkoesq .gt_empty_group_heading {
   padding: 0.5px;
   color: #333333;
   background-color: #FFFFFF;
@@ -1515,15 +1465,15 @@ Table&nbsp;2
   vertical-align: middle;
 }
 
-#rssfqfwjjo .gt_from_md > :first-child {
+#nwvnvkoesq .gt_from_md > :first-child {
   margin-top: 0;
 }
 
-#rssfqfwjjo .gt_from_md > :last-child {
+#nwvnvkoesq .gt_from_md > :last-child {
   margin-bottom: 0;
 }
 
-#rssfqfwjjo .gt_row {
+#nwvnvkoesq .gt_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1542,7 +1492,7 @@ Table&nbsp;2
   overflow-x: hidden;
 }
 
-#rssfqfwjjo .gt_stub {
+#nwvnvkoesq .gt_stub {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -1555,7 +1505,7 @@ Table&nbsp;2
   padding-right: 5px;
 }
 
-#rssfqfwjjo .gt_stub_row_group {
+#nwvnvkoesq .gt_stub_row_group {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -1569,15 +1519,15 @@ Table&nbsp;2
   vertical-align: top;
 }
 
-#rssfqfwjjo .gt_row_group_first td {
+#nwvnvkoesq .gt_row_group_first td {
   border-top-width: 2px;
 }
 
-#rssfqfwjjo .gt_row_group_first th {
+#nwvnvkoesq .gt_row_group_first th {
   border-top-width: 2px;
 }
 
-#rssfqfwjjo .gt_summary_row {
+#nwvnvkoesq .gt_summary_row {
   color: #333333;
   background-color: #FFFFFF;
   text-transform: inherit;
@@ -1587,16 +1537,16 @@ Table&nbsp;2
   padding-right: 5px;
 }
 
-#rssfqfwjjo .gt_first_summary_row {
+#nwvnvkoesq .gt_first_summary_row {
   border-top-style: solid;
   border-top-color: #D3D3D3;
 }
 
-#rssfqfwjjo .gt_first_summary_row.thick {
+#nwvnvkoesq .gt_first_summary_row.thick {
   border-top-width: 2px;
 }
 
-#rssfqfwjjo .gt_last_summary_row {
+#nwvnvkoesq .gt_last_summary_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1606,7 +1556,7 @@ Table&nbsp;2
   border-bottom-color: #D3D3D3;
 }
 
-#rssfqfwjjo .gt_grand_summary_row {
+#nwvnvkoesq .gt_grand_summary_row {
   color: #333333;
   background-color: #FFFFFF;
   text-transform: inherit;
@@ -1616,7 +1566,7 @@ Table&nbsp;2
   padding-right: 5px;
 }
 
-#rssfqfwjjo .gt_first_grand_summary_row {
+#nwvnvkoesq .gt_first_grand_summary_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1626,7 +1576,7 @@ Table&nbsp;2
   border-top-color: #D3D3D3;
 }
 
-#rssfqfwjjo .gt_last_grand_summary_row_top {
+#nwvnvkoesq .gt_last_grand_summary_row_top {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1636,11 +1586,11 @@ Table&nbsp;2
   border-bottom-color: #D3D3D3;
 }
 
-#rssfqfwjjo .gt_striped {
+#nwvnvkoesq .gt_striped {
   background-color: rgba(128, 128, 128, 0.05);
 }
 
-#rssfqfwjjo .gt_table_body {
+#nwvnvkoesq .gt_table_body {
   border-top-style: solid;
   border-top-width: 2px;
   border-top-color: #D3D3D3;
@@ -1649,7 +1599,7 @@ Table&nbsp;2
   border-bottom-color: #D3D3D3;
 }
 
-#rssfqfwjjo .gt_footnotes {
+#nwvnvkoesq .gt_footnotes {
   color: #333333;
   background-color: #FFFFFF;
   border-bottom-style: none;
@@ -1663,7 +1613,7 @@ Table&nbsp;2
   border-right-color: #D3D3D3;
 }
 
-#rssfqfwjjo .gt_footnote {
+#nwvnvkoesq .gt_footnote {
   margin: 0px;
   font-size: 90%;
   padding-top: 4px;
@@ -1672,7 +1622,7 @@ Table&nbsp;2
   padding-right: 5px;
 }
 
-#rssfqfwjjo .gt_sourcenotes {
+#nwvnvkoesq .gt_sourcenotes {
   color: #333333;
   background-color: #FFFFFF;
   border-bottom-style: none;
@@ -1686,7 +1636,7 @@ Table&nbsp;2
   border-right-color: #D3D3D3;
 }
 
-#rssfqfwjjo .gt_sourcenote {
+#nwvnvkoesq .gt_sourcenote {
   font-size: 90%;
   padding-top: 4px;
   padding-bottom: 4px;
@@ -1694,72 +1644,72 @@ Table&nbsp;2
   padding-right: 5px;
 }
 
-#rssfqfwjjo .gt_left {
+#nwvnvkoesq .gt_left {
   text-align: left;
 }
 
-#rssfqfwjjo .gt_center {
+#nwvnvkoesq .gt_center {
   text-align: center;
 }
 
-#rssfqfwjjo .gt_right {
+#nwvnvkoesq .gt_right {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
-#rssfqfwjjo .gt_font_normal {
+#nwvnvkoesq .gt_font_normal {
   font-weight: normal;
 }
 
-#rssfqfwjjo .gt_font_bold {
+#nwvnvkoesq .gt_font_bold {
   font-weight: bold;
 }
 
-#rssfqfwjjo .gt_font_italic {
+#nwvnvkoesq .gt_font_italic {
   font-style: italic;
 }
 
-#rssfqfwjjo .gt_super {
+#nwvnvkoesq .gt_super {
   font-size: 65%;
 }
 
-#rssfqfwjjo .gt_footnote_marks {
+#nwvnvkoesq .gt_footnote_marks {
   font-size: 75%;
   vertical-align: 0.4em;
   position: initial;
 }
 
-#rssfqfwjjo .gt_asterisk {
+#nwvnvkoesq .gt_asterisk {
   font-size: 100%;
   vertical-align: 0;
 }
 
-#rssfqfwjjo .gt_indent_1 {
+#nwvnvkoesq .gt_indent_1 {
   text-indent: 5px;
 }
 
-#rssfqfwjjo .gt_indent_2 {
+#nwvnvkoesq .gt_indent_2 {
   text-indent: 10px;
 }
 
-#rssfqfwjjo .gt_indent_3 {
+#nwvnvkoesq .gt_indent_3 {
   text-indent: 15px;
 }
 
-#rssfqfwjjo .gt_indent_4 {
+#nwvnvkoesq .gt_indent_4 {
   text-indent: 20px;
 }
 
-#rssfqfwjjo .gt_indent_5 {
+#nwvnvkoesq .gt_indent_5 {
   text-indent: 25px;
 }
 
-#rssfqfwjjo .katex-display {
+#nwvnvkoesq .katex-display {
   display: inline-flex !important;
   margin-bottom: 0.75em !important;
 }
 
-#rssfqfwjjo div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
+#nwvnvkoesq div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
   height: 0px !important;
 }
 </style>
@@ -1893,16 +1843,16 @@ Table&nbsp;2
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_posterior_marginals</span>(</span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">draws_df =</span> post_burn_draws,</span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">asset_name =</span> <span class="st">"Tech_Growth"</span>,</span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">true_val =</span> <span class="fl">0.110</span> <span class="sc">/</span> <span class="dv">252</span></span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_posterior_marginals</span>(</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">draws_df =</span> post_burn_draws,</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">asset_name =</span> <span class="st">"Tech_Growth"</span>,</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">true_val =</span> gen<span class="sc">$</span>ann_returns[gen<span class="sc">$</span>asset_names <span class="sc">==</span> <span class="st">"Tech_Growth"</span>] <span class="sc">/</span> <span class="dv">252</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output-display">
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
-<p><a href="02-risk-application_files/figure-html/marginal-plot-tech-1.png" class="lightbox" data-gallery="quarto-lightbox-gallery-1" title="Figure 1: Marginal posterior distribution for Tech Growth expected daily returns."><img src="02-risk-application_files/figure-html/marginal-plot-tech-1.png" class="img-fluid figure-img" width="768" alt="Figure 1: Marginal posterior distribution for Tech Growth expected daily returns."></a></p>
+<p><a href="02-risk-application_files/figure-html/marginal-plot-tech-1.png" class="lightbox" data-gallery="quarto-lightbox-gallery-1" title="Figure 1: Marginal posterior distribution for Tech Growth expected daily returns."><img src="02-risk-application_files/figure-html/marginal-plot-tech-1.png" class="img-fluid figure-img" width="960" alt="Figure 1: Marginal posterior distribution for Tech Growth expected daily returns."></a></p>
 <figcaption>Figure 1: Marginal posterior distribution for Tech Growth expected daily returns.</figcaption>
 </figure>
 </div>
@@ -1911,16 +1861,16 @@ Table&nbsp;2
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_posterior_marginals</span>(</span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">draws_df =</span> post_burn_draws,</span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">asset_name =</span> <span class="st">"US_Treas_10Y"</span>,</span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">true_val =</span> <span class="fl">0.035</span> <span class="sc">/</span> <span class="dv">252</span></span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_posterior_marginals</span>(</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">draws_df =</span> post_burn_draws,</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">asset_name =</span> <span class="st">"US_Treas_10Y"</span>,</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">true_val =</span> gen<span class="sc">$</span>ann_returns[gen<span class="sc">$</span>asset_names <span class="sc">==</span> <span class="st">"US_Treas_10Y"</span>] <span class="sc">/</span> <span class="dv">252</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output-display">
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
-<p><a href="02-risk-application_files/figure-html/marginal-plot-treas-1.png" class="lightbox" data-gallery="quarto-lightbox-gallery-2" title="Figure 2: Marginal posterior distribution for 10Y US Treasury returns(Duration hedge)."><img src="02-risk-application_files/figure-html/marginal-plot-treas-1.png" class="img-fluid figure-img" width="768" alt="Figure 2: Marginal posterior distribution for 10Y US Treasury returns(Duration hedge)."></a></p>
+<p><a href="02-risk-application_files/figure-html/marginal-plot-treas-1.png" class="lightbox" data-gallery="quarto-lightbox-gallery-2" title="Figure 2: Marginal posterior distribution for 10Y US Treasury returns(Duration hedge)."><img src="02-risk-application_files/figure-html/marginal-plot-treas-1.png" class="img-fluid figure-img" width="960" alt="Figure 2: Marginal posterior distribution for 10Y US Treasury returns(Duration hedge)."></a></p>
 <figcaption>Figure 2: Marginal posterior distribution for 10Y US Treasury returns(Duration hedge).</figcaption>
 </figure>
 </div>
@@ -1941,7 +1891,7 @@ Table&nbsp;2
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>MCMC recovers the <strong>posterior</strong>, not the <strong>truth</strong>. With 250 daily observations, mean returns are poorly identified: Tech Growth’s posterior standard deviation (≈0.10% daily) is more than twice its true mean. Narrowing that uncertainty to about 0.01% daily would take roughly  25,451 trading days of data. For risk managers, a year of history can’t reliably tell a high-drift asset from a low-drift one. That estimation uncertainty is exactly what the VaR and ES credible intervals are meant to capture.</p>
+<p>MCMC recovers the <strong>posterior</strong>, not the <strong>truth</strong>. With 250 daily observations, mean returns are poorly identified: Tech Growth’s posterior standard deviation (≈0.10% daily) is 2.3 times its true mean. Narrowing that uncertainty to about 0.01% daily would take roughly  25,451 trading days of data. For risk managers, a year of history can’t reliably tell a high-drift asset from a low-drift one. That estimation uncertainty is exactly what the VaR and ES credible intervals are meant to capture.</p>
 </div>
 </div>
 
@@ -2414,309 +2364,278 @@ Table&nbsp;2
       </a>
   </div>
 </nav><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "10-Factor Portfolio Risk &amp; Tail Estimation"</span></span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="an">subtitle:</span><span class="co"> "Evaluating Parameter Uncertainty in Expected Returns Against Analytical Benchmarks"</span></span>
-<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="fu">### Introduction</span></span>
-<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>This chapter transitions from two-dimensional toy mechanics to a multi-asset portfolio comprising ten correlated risk factor exposures—spanning core equity betas, corporate credit carry, duration hedges, and commodities. </span>
-<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>To provide a mathematically rigorous audit baseline, we formulate a Bayesian return model with a known closed-form solution. We model daily returns as multivariate normal $\mathbf{R} \sim \mathcal{N}(\boldsymbol{\mu}, \mathbf{\Sigma})$ with a diffuse Gaussian prior on the mean vector $\boldsymbol{\mu} \sim \mathcal{N}(\mathbf{0}, 10^3 \mathbf{I})$ and condition the covariance matrix on the empirical sample estimate $\mathbf{\Sigma} = \hat{\mathbf{\Sigma}}_{\text{emp}}$. Under this conjugate structure, the joint posterior distribution of expected returns is analytically known:</span>
-<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>$$\boldsymbol{\mu} \mid \mathbf{R}, \mathbf{\Sigma} \sim \mathcal{N}\left(\bar{\mathbf{x}}, \frac{1}{n} \mathbf{\Sigma}\right)$$</span>
-<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>While a closed-form solution exists for this specific Gaussian model, using it as our target allows us to directly benchmark MCMC performance. We can compare the empirical draws, standard errors, and credible intervals from our first-principles Metropolis sampler directly against the analytical truth.</span>
-<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a><span class="in">```{r setup, echo = TRUE, message = FALSE, warning = FALSE}</span></span>
-<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span>opts_chunk<span class="sc">$</span><span class="fu">set</span>(<span class="at">echo =</span> <span class="cn">TRUE</span>, <span class="at">message =</span> <span class="cn">FALSE</span>, <span class="at">warning =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
-<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(gt)</span>
-<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(scales)</span>
-<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
-<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"R/metropolis_sampler.R"</span>)</span>
-<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"R/risk_functions.R"</span>)</span>
-<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"R/plots.R"</span>)</span>
-<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. Ingest synthetic book fixture and build log-posterior</span></span>
-<span id="cb5-28"><a href="#cb5-28" aria-hidden="true" tabindex="-1"></a>model_fixture <span class="ot">&lt;-</span> <span class="fu">build_risk_target</span>(<span class="st">"data/synthetic_returns.csv"</span>)</span>
-<span id="cb5-29"><a href="#cb5-29" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-30"><a href="#cb5-30" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. Run 10-dimensional MCMC chain</span></span>
-<span id="cb5-31"><a href="#cb5-31" aria-hidden="true" tabindex="-1"></a>init_theta <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="dv">0</span>, model_fixture<span class="sc">$</span>d)</span>
-<span id="cb5-32"><a href="#cb5-32" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(init_theta) <span class="ot">&lt;-</span> model_fixture<span class="sc">$</span>asset_names</span>
-<span id="cb5-33"><a href="#cb5-33" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-34"><a href="#cb5-34" aria-hidden="true" tabindex="-1"></a>chain_10d <span class="ot">&lt;-</span> <span class="fu">run_metropolis</span>(</span>
-<span id="cb5-35"><a href="#cb5-35" aria-hidden="true" tabindex="-1"></a>  <span class="at">target_log_posterior =</span> model_fixture<span class="sc">$</span>target_fn,</span>
-<span id="cb5-36"><a href="#cb5-36" aria-hidden="true" tabindex="-1"></a>  <span class="at">initial_theta =</span> init_theta,</span>
-<span id="cb5-37"><a href="#cb5-37" aria-hidden="true" tabindex="-1"></a>  <span class="at">iterations =</span> <span class="dv">3000</span>,</span>
-<span id="cb5-38"><a href="#cb5-38" aria-hidden="true" tabindex="-1"></a>  <span class="at">proposal_sd =</span> <span class="fl">0.00032</span>,</span>
-<span id="cb5-39"><a href="#cb5-39" aria-hidden="true" tabindex="-1"></a>  <span class="at">seed =</span> <span class="dv">42</span></span>
-<span id="cb5-40"><a href="#cb5-40" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb5-41"><a href="#cb5-41" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-42"><a href="#cb5-42" aria-hidden="true" tabindex="-1"></a><span class="co"># 3. Discard first 500 draws as burn-in</span></span>
-<span id="cb5-43"><a href="#cb5-43" aria-hidden="true" tabindex="-1"></a>post_burn_draws <span class="ot">&lt;-</span> chain_10d<span class="sc">$</span>draws <span class="sc">%&gt;%</span> <span class="fu">slice_tail</span>(<span class="at">n =</span> <span class="dv">2500</span>)</span>
-<span id="cb5-44"><a href="#cb5-44" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-45"><a href="#cb5-45" aria-hidden="true" tabindex="-1"></a><span class="co"># 4. Tail risk evaluation across equal-weighted portfolio</span></span>
-<span id="cb5-46"><a href="#cb5-46" aria-hidden="true" tabindex="-1"></a>weights_eq <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="fl">0.10</span>, <span class="dv">10</span>)</span>
-<span id="cb5-47"><a href="#cb5-47" aria-hidden="true" tabindex="-1"></a>risk_table <span class="ot">&lt;-</span> <span class="fu">evaluate_portfolio_tail_risk</span>(</span>
-<span id="cb5-48"><a href="#cb5-48" aria-hidden="true" tabindex="-1"></a>  <span class="at">draws_df =</span> post_burn_draws,</span>
-<span id="cb5-49"><a href="#cb5-49" aria-hidden="true" tabindex="-1"></a>  <span class="at">weights =</span> weights_eq,</span>
-<span id="cb5-50"><a href="#cb5-50" aria-hidden="true" tabindex="-1"></a>  <span class="at">cov_mat =</span> model_fixture<span class="sc">$</span>cov_emp,</span>
-<span id="cb5-51"><a href="#cb5-51" aria-hidden="true" tabindex="-1"></a>  <span class="at">alpha =</span> <span class="fl">0.95</span></span>
-<span id="cb5-52"><a href="#cb5-52" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb5-53"><a href="#cb5-53" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-54"><a href="#cb5-54" aria-hidden="true" tabindex="-1"></a><span class="co"># 5. Pre-formatted text variables for dynamic inline reporting</span></span>
-<span id="cb5-55"><a href="#cb5-55" aria-hidden="true" tabindex="-1"></a>acc_rate_txt   <span class="ot">&lt;-</span> <span class="fu">sprintf</span>(<span class="st">"%.1f%%"</span>, chain_10d<span class="sc">$</span>acceptance_rate <span class="sc">*</span> <span class="dv">100</span>)</span>
-<span id="cb5-56"><a href="#cb5-56" aria-hidden="true" tabindex="-1"></a>var_mean_txt   <span class="ot">&lt;-</span> <span class="fu">sprintf</span>(<span class="st">"%.2f%%"</span>, risk_table<span class="sc">$</span>mean_estimate[<span class="dv">1</span>] <span class="sc">*</span> <span class="dv">100</span>)</span>
-<span id="cb5-57"><a href="#cb5-57" aria-hidden="true" tabindex="-1"></a>var_ci_txt     <span class="ot">&lt;-</span> <span class="fu">sprintf</span>(<span class="st">"[%.2f%%, %.2f%%]"</span>, risk_table<span class="sc">$</span>ci_05[<span class="dv">1</span>] <span class="sc">*</span> <span class="dv">100</span>, risk_table<span class="sc">$</span>ci_95[<span class="dv">1</span>] <span class="sc">*</span> <span class="dv">100</span>)</span>
-<span id="cb5-58"><a href="#cb5-58" aria-hidden="true" tabindex="-1"></a>es_mean_txt    <span class="ot">&lt;-</span> <span class="fu">sprintf</span>(<span class="st">"%.2f%%"</span>, risk_table<span class="sc">$</span>mean_estimate[<span class="dv">2</span>] <span class="sc">*</span> <span class="dv">100</span>)</span>
-<span id="cb5-59"><a href="#cb5-59" aria-hidden="true" tabindex="-1"></a>es_ci_txt      <span class="ot">&lt;-</span> <span class="fu">sprintf</span>(<span class="st">"[%.2f%%, %.2f%%]"</span>, risk_table<span class="sc">$</span>ci_05[<span class="dv">2</span>] <span class="sc">*</span> <span class="dv">100</span>, risk_table<span class="sc">$</span>ci_95[<span class="dv">2</span>] <span class="sc">*</span> <span class="dv">100</span>)</span>
-<span id="cb5-60"><a href="#cb5-60" aria-hidden="true" tabindex="-1"></a>n_draws_txt    <span class="ot">&lt;-</span> <span class="fu">comma</span>(<span class="fu">nrow</span>(post_burn_draws))</span>
-<span id="cb5-61"><a href="#cb5-61" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-62"><a href="#cb5-62" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb5-63"><a href="#cb5-63" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-64"><a href="#cb5-64" aria-hidden="true" tabindex="-1"></a><span class="fu">### Sampling the 10-Factor Joint Posterior</span></span>
-<span id="cb5-65"><a href="#cb5-65" aria-hidden="true" tabindex="-1"></a>The sampler processes 250 trading days of observed returns across all 10 assets simultaneously. Starting cold at $\boldsymbol{\mu}_0 = \mathbf{0}$, the chain completes 3,000 iterations, discarding the first 500 iterations to eliminate initialization bias.</span>
-<span id="cb5-66"><a href="#cb5-66" aria-hidden="true" tabindex="-1"></a>The chain operates at an empirical acceptance rate of <span class="in">`{r} acc_rate_txt`</span>.</span>
-<span id="cb5-67"><a href="#cb5-67" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-68"><a href="#cb5-68" aria-hidden="true" tabindex="-1"></a><span class="in">```{r factor-risk-table, echo = TRUE}</span></span>
-<span id="cb5-69"><a href="#cb5-69" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-70"><a href="#cb5-70" aria-hidden="true" tabindex="-1"></a>risk_table <span class="sc">%&gt;%</span></span>
-<span id="cb5-71"><a href="#cb5-71" aria-hidden="true" tabindex="-1"></a>  <span class="fu">gt</span>() <span class="sc">%&gt;%</span></span>
-<span id="cb5-72"><a href="#cb5-72" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_header</span>(</span>
-<span id="cb5-73"><a href="#cb5-73" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="fu">md</span>(<span class="st">"**10-Asset Portfolio Tail Risk Estimates (1-Day Horizon)**"</span>),</span>
-<span id="cb5-74"><a href="#cb5-74" aria-hidden="true" tabindex="-1"></a>    <span class="at">subtitle =</span> <span class="st">"Posterior mean risk metrics and 90% Bayesian credible intervals under parameter uncertainty"</span></span>
-<span id="cb5-75"><a href="#cb5-75" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
-<span id="cb5-76"><a href="#cb5-76" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cols_label</span>(</span>
-<span id="cb5-77"><a href="#cb5-77" aria-hidden="true" tabindex="-1"></a>    <span class="at">metric =</span> <span class="st">"Tail Risk Measure"</span>,</span>
-<span id="cb5-78"><a href="#cb5-78" aria-hidden="true" tabindex="-1"></a>    <span class="at">mean_estimate =</span> <span class="st">"Posterior Mean"</span>,</span>
-<span id="cb5-79"><a href="#cb5-79" aria-hidden="true" tabindex="-1"></a>    <span class="at">ci_05 =</span> <span class="st">"5th Percentile"</span>,</span>
-<span id="cb5-80"><a href="#cb5-80" aria-hidden="true" tabindex="-1"></a>    <span class="at">ci_95 =</span> <span class="st">"95th Percentile"</span></span>
-<span id="cb5-81"><a href="#cb5-81" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
-<span id="cb5-82"><a href="#cb5-82" aria-hidden="true" tabindex="-1"></a>  <span class="fu">fmt_percent</span>(<span class="at">columns =</span> <span class="fu">c</span>(mean_estimate, ci_05, ci_95), <span class="at">decimals =</span> <span class="dv">2</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb5-83"><a href="#cb5-83" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_options</span>(<span class="at">table.font.size =</span> <span class="dv">12</span>)</span>
-<span id="cb5-84"><a href="#cb5-84" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-85"><a href="#cb5-85" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb5-86"><a href="#cb5-86" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-87"><a href="#cb5-87" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-88"><a href="#cb5-88" aria-hidden="true" tabindex="-1"></a><span class="fu">#### Context: Isolating Parameter Risk in the Mean Vector</span></span>
-<span id="cb5-89"><a href="#cb5-89" aria-hidden="true" tabindex="-1"></a>Because the return distribution is modeled as multivariate normal and $\mathbf{\Sigma}$ is fixed at the sample estimate, the portfolio tail metrics reflect the properties of Gaussian loss distributions under estimation uncertainty:</span>
-<span id="cb5-90"><a href="#cb5-90" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-91"><a href="#cb5-91" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**Mean Uncertainty Bounds ($\text{VaR}_{95\%}$):** For an equal-weighted portfolio, parametric Value at Risk is governed by $\text{VaR}_{95\%} \approx -\mathbf{w}'\boldsymbol{\mu} + 1.645 \cdot \sigma_p$. Because covariance is held constant, the 12 basis point spread between the 5th and 95th percentiles ($0.99\%$ to $1.11\%$) reflects the estimation uncertainty of the portfolio mean alone ($\pm 1.645 \cdot \sigma_p / \sqrt{n}$), setting aside covariance uncertainty.</span>
-<span id="cb5-92"><a href="#cb5-92" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**Expected Shortfall Ratio ($\text{ES}_{95\%}$):** The ratio of Expected Shortfall to Value at Risk ($1.33\% / 1.05\% \approx 1.27$  ) reflects standard Gaussian tail expectation constants ($\approx 2.063 / 1.645$), adjusted for the portfolio drift. Under a normal likelihood, this metric captures linear downside expectation rather than excess kurtosis or heavy-tailed structural shocks.</span>
-<span id="cb5-93"><a href="#cb5-93" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-94"><a href="#cb5-94" aria-hidden="true" tabindex="-1"></a><span class="fu">### Benchmarking MCMC Against the Exact Posterior</span></span>
-<span id="cb5-95"><a href="#cb5-95" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-96"><a href="#cb5-96" aria-hidden="true" tabindex="-1"></a>Because this model is conjugate, the exact posterior is known. With the </span>
-<span id="cb5-97"><a href="#cb5-97" aria-hidden="true" tabindex="-1"></a>diffuse prior <span class="sc">\\</span>(<span class="sc">\\</span>boldsymbol{<span class="sc">\\</span>mu} <span class="sc">\\</span>sim <span class="sc">\\</span>mathcal{N}(<span class="sc">\\</span>mathbf{0}, 10^3<span class="sc">\\</span>mathbf{I})<span class="sc">\\</span>), </span>
-<span id="cb5-98"><a href="#cb5-98" aria-hidden="true" tabindex="-1"></a>the posterior is Gaussian with covariance </span>
-<span id="cb5-99"><a href="#cb5-99" aria-hidden="true" tabindex="-1"></a><span class="sc">\\</span>(<span class="sc">\\</span>mathbf{V} = (n<span class="sc">\\</span>hat{<span class="sc">\\</span>Sigma}^{-1} + 10^{-3}<span class="sc">\\</span>mathbf{I})^{-1}<span class="sc">\\</span>). Portfolio VaR and </span>
-<span id="cb5-100"><a href="#cb5-100" aria-hidden="true" tabindex="-1"></a>ES are linear in <span class="sc">\\</span>(<span class="sc">\\</span>boldsymbol{<span class="sc">\\</span>mu}<span class="sc">\\</span>), so their exact posteriors are also normal. </span>
-<span id="cb5-101"><a href="#cb5-101" aria-hidden="true" tabindex="-1"></a>That lets us check every MCMC output against the true answer.</span>
-<span id="cb5-102"><a href="#cb5-102" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-105"><a href="#cb5-105" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb5-106"><a href="#cb5-106" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: exact-benchmark</span></span>
-<span id="cb5-107"><a href="#cb5-107" aria-hidden="true" tabindex="-1"></a><span class="co">#| echo: false</span></span>
-<span id="cb5-108"><a href="#cb5-108" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-109"><a href="#cb5-109" aria-hidden="true" tabindex="-1"></a>R_mat <span class="ot">&lt;-</span> model_fixture<span class="sc">$</span>returns_mat</span>
-<span id="cb5-110"><a href="#cb5-110" aria-hidden="true" tabindex="-1"></a>S     <span class="ot">&lt;-</span> model_fixture<span class="sc">$</span>cov_emp</span>
-<span id="cb5-111"><a href="#cb5-111" aria-hidden="true" tabindex="-1"></a>n_obs <span class="ot">&lt;-</span> <span class="fu">nrow</span>(R_mat)</span>
-<span id="cb5-112"><a href="#cb5-112" aria-hidden="true" tabindex="-1"></a>d     <span class="ot">&lt;-</span> model_fixture<span class="sc">$</span>d</span>
-<span id="cb5-113"><a href="#cb5-113" aria-hidden="true" tabindex="-1"></a>S_inv <span class="ot">&lt;-</span> <span class="fu">solve</span>(S)</span>
-<span id="cb5-114"><a href="#cb5-114" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-115"><a href="#cb5-115" aria-hidden="true" tabindex="-1"></a><span class="co"># Exact posterior of mu (matches prior used in build_risk_target)</span></span>
-<span id="cb5-116"><a href="#cb5-116" aria-hidden="true" tabindex="-1"></a>V_post <span class="ot">&lt;-</span> <span class="fu">solve</span>(n_obs <span class="sc">*</span> S_inv <span class="sc">+</span> <span class="fl">1e-3</span> <span class="sc">*</span> <span class="fu">diag</span>(d))</span>
-<span id="cb5-117"><a href="#cb5-117" aria-hidden="true" tabindex="-1"></a>m_post <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(V_post <span class="sc">%*%</span> (S_inv <span class="sc">%*%</span> <span class="fu">colSums</span>(R_mat)))</span>
-<span id="cb5-118"><a href="#cb5-118" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(m_post) <span class="ot">&lt;-</span> model_fixture<span class="sc">$</span>asset_names</span>
-<span id="cb5-119"><a href="#cb5-119" aria-hidden="true" tabindex="-1"></a>sd_post <span class="ot">&lt;-</span> <span class="fu">sqrt</span>(<span class="fu">diag</span>(V_post))</span>
-<span id="cb5-120"><a href="#cb5-120" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-121"><a href="#cb5-121" aria-hidden="true" tabindex="-1"></a><span class="co"># Exact posterior of portfolio VaR and ES</span></span>
-<span id="cb5-122"><a href="#cb5-122" aria-hidden="true" tabindex="-1"></a>w      <span class="ot">&lt;-</span> weights_eq</span>
-<span id="cb5-123"><a href="#cb5-123" aria-hidden="true" tabindex="-1"></a>sig_p  <span class="ot">&lt;-</span> <span class="fu">sqrt</span>(<span class="fu">as.numeric</span>(<span class="fu">t</span>(w) <span class="sc">%*%</span> S <span class="sc">%*%</span> w))</span>
-<span id="cb5-124"><a href="#cb5-124" aria-hidden="true" tabindex="-1"></a>mu_p   <span class="ot">&lt;-</span> <span class="fu">sum</span>(w <span class="sc">*</span> m_post)</span>
-<span id="cb5-125"><a href="#cb5-125" aria-hidden="true" tabindex="-1"></a>sd_mup <span class="ot">&lt;-</span> <span class="fu">sqrt</span>(<span class="fu">as.numeric</span>(<span class="fu">t</span>(w) <span class="sc">%*%</span> V_post <span class="sc">%*%</span> w))</span>
-<span id="cb5-126"><a href="#cb5-126" aria-hidden="true" tabindex="-1"></a>k_var  <span class="ot">&lt;-</span> <span class="fu">qnorm</span>(<span class="fl">0.95</span>)</span>
-<span id="cb5-127"><a href="#cb5-127" aria-hidden="true" tabindex="-1"></a>k_es   <span class="ot">&lt;-</span> <span class="fu">dnorm</span>(<span class="fu">qnorm</span>(<span class="fl">0.95</span>)) <span class="sc">/</span> <span class="fl">0.05</span></span>
-<span id="cb5-128"><a href="#cb5-128" aria-hidden="true" tabindex="-1"></a>z90    <span class="ot">&lt;-</span> <span class="fu">qnorm</span>(<span class="fl">0.95</span>)</span>
-<span id="cb5-129"><a href="#cb5-129" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-130"><a href="#cb5-130" aria-hidden="true" tabindex="-1"></a>exact_var <span class="ot">&lt;-</span> <span class="sc">-</span>mu_p <span class="sc">+</span> k_var <span class="sc">*</span> sig_p</span>
-<span id="cb5-131"><a href="#cb5-131" aria-hidden="true" tabindex="-1"></a>exact_es  <span class="ot">&lt;-</span> <span class="sc">-</span>mu_p <span class="sc">+</span> k_es  <span class="sc">*</span> sig_p</span>
-<span id="cb5-132"><a href="#cb5-132" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-133"><a href="#cb5-133" aria-hidden="true" tabindex="-1"></a>fmt_ci <span class="ot">&lt;-</span> <span class="cf">function</span>(lo, hi) <span class="fu">sprintf</span>(<span class="st">"%.2f%% – %.2f%%"</span>, lo <span class="sc">*</span> <span class="dv">100</span>, hi <span class="sc">*</span> <span class="dv">100</span>)</span>
-<span id="cb5-134"><a href="#cb5-134" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb5-135"><a href="#cb5-135" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-138"><a href="#cb5-138" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb5-139"><a href="#cb5-139" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: tbl-tail-benchmark</span></span>
-<span id="cb5-140"><a href="#cb5-140" aria-hidden="true" tabindex="-1"></a><span class="co">#| echo: false</span></span>
-<span id="cb5-141"><a href="#cb5-141" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-142"><a href="#cb5-142" aria-hidden="true" tabindex="-1"></a>tail_bench <span class="ot">&lt;-</span> <span class="fu">tibble</span>(</span>
-<span id="cb5-143"><a href="#cb5-143" aria-hidden="true" tabindex="-1"></a>  <span class="at">Metric =</span> <span class="fu">c</span>(<span class="st">"VaR 95% — mean"</span>, <span class="st">"VaR 95% — 90% interval"</span>,</span>
-<span id="cb5-144"><a href="#cb5-144" aria-hidden="true" tabindex="-1"></a>             <span class="st">"ES 95% — mean"</span>,  <span class="st">"ES 95% — 90% interval"</span>),</span>
-<span id="cb5-145"><a href="#cb5-145" aria-hidden="true" tabindex="-1"></a>  <span class="at">MCMC =</span> <span class="fu">c</span>(</span>
-<span id="cb5-146"><a href="#cb5-146" aria-hidden="true" tabindex="-1"></a>    <span class="fu">sprintf</span>(<span class="st">"%.3f%%"</span>, risk_table<span class="sc">$</span>mean_estimate[<span class="dv">1</span>] <span class="sc">*</span> <span class="dv">100</span>),</span>
-<span id="cb5-147"><a href="#cb5-147" aria-hidden="true" tabindex="-1"></a>    <span class="fu">fmt_ci</span>(risk_table<span class="sc">$</span>ci_05[<span class="dv">1</span>], risk_table<span class="sc">$</span>ci_95[<span class="dv">1</span>]),</span>
-<span id="cb5-148"><a href="#cb5-148" aria-hidden="true" tabindex="-1"></a>    <span class="fu">sprintf</span>(<span class="st">"%.3f%%"</span>, risk_table<span class="sc">$</span>mean_estimate[<span class="dv">2</span>] <span class="sc">*</span> <span class="dv">100</span>),</span>
-<span id="cb5-149"><a href="#cb5-149" aria-hidden="true" tabindex="-1"></a>    <span class="fu">fmt_ci</span>(risk_table<span class="sc">$</span>ci_05[<span class="dv">2</span>], risk_table<span class="sc">$</span>ci_95[<span class="dv">2</span>])</span>
-<span id="cb5-150"><a href="#cb5-150" aria-hidden="true" tabindex="-1"></a>  ),</span>
-<span id="cb5-151"><a href="#cb5-151" aria-hidden="true" tabindex="-1"></a>  <span class="at">Exact =</span> <span class="fu">c</span>(</span>
-<span id="cb5-152"><a href="#cb5-152" aria-hidden="true" tabindex="-1"></a>    <span class="fu">sprintf</span>(<span class="st">"%.3f%%"</span>, exact_var <span class="sc">*</span> <span class="dv">100</span>),</span>
-<span id="cb5-153"><a href="#cb5-153" aria-hidden="true" tabindex="-1"></a>    <span class="fu">fmt_ci</span>(exact_var <span class="sc">-</span> z90 <span class="sc">*</span> sd_mup, exact_var <span class="sc">+</span> z90 <span class="sc">*</span> sd_mup),</span>
-<span id="cb5-154"><a href="#cb5-154" aria-hidden="true" tabindex="-1"></a>    <span class="fu">sprintf</span>(<span class="st">"%.3f%%"</span>, exact_es <span class="sc">*</span> <span class="dv">100</span>),</span>
-<span id="cb5-155"><a href="#cb5-155" aria-hidden="true" tabindex="-1"></a>    <span class="fu">fmt_ci</span>(exact_es <span class="sc">-</span> z90 <span class="sc">*</span> sd_mup, exact_es <span class="sc">+</span> z90 <span class="sc">*</span> sd_mup)</span>
-<span id="cb5-156"><a href="#cb5-156" aria-hidden="true" tabindex="-1"></a>  )</span>
-<span id="cb5-157"><a href="#cb5-157" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb5-158"><a href="#cb5-158" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-159"><a href="#cb5-159" aria-hidden="true" tabindex="-1"></a><span class="co"># Interval width ratio (MCMC / exact), VaR row</span></span>
-<span id="cb5-160"><a href="#cb5-160" aria-hidden="true" tabindex="-1"></a>width_ratio <span class="ot">&lt;-</span> (risk_table<span class="sc">$</span>ci_95[<span class="dv">1</span>] <span class="sc">-</span> risk_table<span class="sc">$</span>ci_05[<span class="dv">1</span>]) <span class="sc">/</span> (<span class="dv">2</span> <span class="sc">*</span> z90 <span class="sc">*</span> sd_mup)</span>
-<span id="cb5-161"><a href="#cb5-161" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-162"><a href="#cb5-162" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-163"><a href="#cb5-163" aria-hidden="true" tabindex="-1"></a>tail_bench <span class="sc">%&gt;%</span></span>
-<span id="cb5-164"><a href="#cb5-164" aria-hidden="true" tabindex="-1"></a>  <span class="fu">gt</span>() <span class="sc">%&gt;%</span></span>
-<span id="cb5-165"><a href="#cb5-165" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_header</span>(</span>
-<span id="cb5-166"><a href="#cb5-166" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="fu">md</span>(<span class="st">"**Tail Risk: MCMC vs. Exact Posterior**"</span>),</span>
-<span id="cb5-167"><a href="#cb5-167" aria-hidden="true" tabindex="-1"></a>    <span class="at">subtitle =</span> <span class="st">"Equal-weighted portfolio, 1-day horizon"</span></span>
-<span id="cb5-168"><a href="#cb5-168" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
-<span id="cb5-169"><a href="#cb5-169" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_options</span>(<span class="at">table.font.size =</span> <span class="dv">12</span>)</span>
-<span id="cb5-170"><a href="#cb5-170" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb5-171"><a href="#cb5-171" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-174"><a href="#cb5-174" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb5-175"><a href="#cb5-175" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: tbl-factor-benchmark</span></span>
-<span id="cb5-176"><a href="#cb5-176" aria-hidden="true" tabindex="-1"></a><span class="co">#| echo: false</span></span>
-<span id="cb5-177"><a href="#cb5-177" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-178"><a href="#cb5-178" aria-hidden="true" tabindex="-1"></a>draws_mat <span class="ot">&lt;-</span> <span class="fu">as.matrix</span>(post_burn_draws[, model_fixture<span class="sc">$</span>asset_names])</span>
-<span id="cb5-179"><a href="#cb5-179" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-180"><a href="#cb5-180" aria-hidden="true" tabindex="-1"></a>factor_bench <span class="ot">&lt;-</span> <span class="fu">tibble</span>(</span>
-<span id="cb5-181"><a href="#cb5-181" aria-hidden="true" tabindex="-1"></a>  <span class="at">Factor     =</span> model_fixture<span class="sc">$</span>asset_names,</span>
-<span id="cb5-182"><a href="#cb5-182" aria-hidden="true" tabindex="-1"></a>  <span class="at">MCMC_Mean  =</span> <span class="fu">colMeans</span>(draws_mat),</span>
-<span id="cb5-183"><a href="#cb5-183" aria-hidden="true" tabindex="-1"></a>  <span class="at">Exact_Mean =</span> m_post,</span>
-<span id="cb5-184"><a href="#cb5-184" aria-hidden="true" tabindex="-1"></a>  <span class="at">MCMC_SD    =</span> <span class="fu">apply</span>(draws_mat, <span class="dv">2</span>, sd),</span>
-<span id="cb5-185"><a href="#cb5-185" aria-hidden="true" tabindex="-1"></a>  <span class="at">Exact_SD   =</span> sd_post</span>
-<span id="cb5-186"><a href="#cb5-186" aria-hidden="true" tabindex="-1"></a>) <span class="sc">%&gt;%</span></span>
-<span id="cb5-187"><a href="#cb5-187" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
-<span id="cb5-188"><a href="#cb5-188" aria-hidden="true" tabindex="-1"></a>    <span class="at">SD_Ratio      =</span> MCMC_SD <span class="sc">/</span> Exact_SD,</span>
-<span id="cb5-189"><a href="#cb5-189" aria-hidden="true" tabindex="-1"></a>    <span class="at">Mean_Error_SD =</span> (MCMC_Mean <span class="sc">-</span> Exact_Mean) <span class="sc">/</span> Exact_SD</span>
-<span id="cb5-190"><a href="#cb5-190" aria-hidden="true" tabindex="-1"></a>  )</span>
-<span id="cb5-191"><a href="#cb5-191" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-192"><a href="#cb5-192" aria-hidden="true" tabindex="-1"></a>factor_bench <span class="sc">%&gt;%</span></span>
-<span id="cb5-193"><a href="#cb5-193" aria-hidden="true" tabindex="-1"></a>  <span class="fu">gt</span>() <span class="sc">%&gt;%</span></span>
-<span id="cb5-194"><a href="#cb5-194" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_header</span>(</span>
-<span id="cb5-195"><a href="#cb5-195" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="fu">md</span>(<span class="st">"**Per-Factor Posterior: MCMC vs. Exact**"</span>),</span>
-<span id="cb5-196"><a href="#cb5-196" aria-hidden="true" tabindex="-1"></a>    <span class="at">subtitle =</span> <span class="st">"Daily expected returns; SD Ratio &lt; 1 means MCMC under-disperses"</span></span>
-<span id="cb5-197"><a href="#cb5-197" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
-<span id="cb5-198"><a href="#cb5-198" aria-hidden="true" tabindex="-1"></a>  <span class="fu">fmt_percent</span>(<span class="at">columns =</span> <span class="fu">c</span>(MCMC_Mean, Exact_Mean, MCMC_SD, Exact_SD), <span class="at">decimals =</span> <span class="dv">3</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb5-199"><a href="#cb5-199" aria-hidden="true" tabindex="-1"></a>  <span class="fu">fmt_number</span>(<span class="at">columns =</span> <span class="fu">c</span>(SD_Ratio, Mean_Error_SD), <span class="at">decimals =</span> <span class="dv">2</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb5-200"><a href="#cb5-200" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cols_label</span>(</span>
-<span id="cb5-201"><a href="#cb5-201" aria-hidden="true" tabindex="-1"></a>    <span class="at">MCMC_Mean =</span> <span class="st">"MCMC Mean"</span>, <span class="at">Exact_Mean =</span> <span class="st">"Exact Mean"</span>,</span>
-<span id="cb5-202"><a href="#cb5-202" aria-hidden="true" tabindex="-1"></a>    <span class="at">MCMC_SD =</span> <span class="st">"MCMC SD"</span>, <span class="at">Exact_SD =</span> <span class="st">"Exact SD"</span>,</span>
-<span id="cb5-203"><a href="#cb5-203" aria-hidden="true" tabindex="-1"></a>    <span class="at">SD_Ratio =</span> <span class="st">"SD Ratio"</span>, <span class="at">Mean_Error_SD =</span> <span class="st">"Mean Error (SDs)"</span></span>
-<span id="cb5-204"><a href="#cb5-204" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
-<span id="cb5-205"><a href="#cb5-205" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_options</span>(<span class="at">table.font.size =</span> <span class="dv">12</span>)</span>
-<span id="cb5-206"><a href="#cb5-206" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb5-207"><a href="#cb5-207" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-208"><a href="#cb5-208" aria-hidden="true" tabindex="-1"></a><span class="fu">### What the Benchmark Shows</span></span>
-<span id="cb5-209"><a href="#cb5-209" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-210"><a href="#cb5-210" aria-hidden="true" tabindex="-1"></a>The MCMC point estimates match the exact posterior: portfolio VaR and ES </span>
-<span id="cb5-211"><a href="#cb5-211" aria-hidden="true" tabindex="-1"></a>means agree to the second decimal place. The **credible intervals** are </span>
-<span id="cb5-212"><a href="#cb5-212" aria-hidden="true" tabindex="-1"></a>narrower than they should be. The MCMC VaR interval is about </span>
-<span id="cb5-213"><a href="#cb5-213" aria-hidden="true" tabindex="-1"></a><span class="in">`r sprintf("%.0f%%", width_ratio * 100)`</span> of the exact width, so the </span>
-<span id="cb5-214"><a href="#cb5-214" aria-hidden="true" tabindex="-1"></a>sampler understates parameter uncertainty.</span>
-<span id="cb5-215"><a href="#cb5-215" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-216"><a href="#cb5-216" aria-hidden="true" tabindex="-1"></a>Nine of ten factors under-disperse (SD ratio 0.82–0.97). The pattern is </span>
-<span id="cb5-217"><a href="#cb5-217" aria-hidden="true" tabindex="-1"></a>broad-based rather than concentrated in the lowest-ESS factors, consistent </span>
-<span id="cb5-218"><a href="#cb5-218" aria-hidden="true" tabindex="-1"></a>with chains that have explored only part of the posterior.</span>
-<span id="cb5-219"><a href="#cb5-219" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-220"><a href="#cb5-220" aria-hidden="true" tabindex="-1"></a>**Implication for risk reporting:** a poorly mixed sampler can report </span>
-<span id="cb5-221"><a href="#cb5-221" aria-hidden="true" tabindex="-1"></a>the right central estimate while producing credible intervals that are </span>
-<span id="cb5-222"><a href="#cb5-222" aria-hidden="true" tabindex="-1"></a>too narrow, which understates parameter risk. Without a closed-form </span>
-<span id="cb5-223"><a href="#cb5-223" aria-hidden="true" tabindex="-1"></a>benchmark or proper diagnostics, this failure would go unnoticed.</span>
-<span id="cb5-224"><a href="#cb5-224" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-225"><a href="#cb5-225" aria-hidden="true" tabindex="-1"></a>**Parameter Distributions vs. Generative Ground Truth**</span>
-<span id="cb5-226"><a href="#cb5-226" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-227"><a href="#cb5-227" aria-hidden="true" tabindex="-1"></a>Because the fixture was simulated from known parameters, we can compare the sampled MCMC distributions against both the generative population values and the analytical sample estimates.</span>
-<span id="cb5-228"><a href="#cb5-228" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-229"><a href="#cb5-229" aria-hidden="true" tabindex="-1"></a><span class="in">```{r marginal-plot-tech, fig.cap = "Figure 1: Marginal posterior distribution for Tech Growth expected daily returns."}</span></span>
-<span id="cb5-230"><a href="#cb5-230" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-231"><a href="#cb5-231" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_posterior_marginals</span>(</span>
-<span id="cb5-232"><a href="#cb5-232" aria-hidden="true" tabindex="-1"></a>  <span class="at">draws_df =</span> post_burn_draws,</span>
-<span id="cb5-233"><a href="#cb5-233" aria-hidden="true" tabindex="-1"></a>  <span class="at">asset_name =</span> <span class="st">"Tech_Growth"</span>,</span>
-<span id="cb5-234"><a href="#cb5-234" aria-hidden="true" tabindex="-1"></a>  <span class="at">true_val =</span> <span class="fl">0.110</span> <span class="sc">/</span> <span class="dv">252</span></span>
-<span id="cb5-235"><a href="#cb5-235" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb5-236"><a href="#cb5-236" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-237"><a href="#cb5-237" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb5-238"><a href="#cb5-238" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-239"><a href="#cb5-239" aria-hidden="true" tabindex="-1"></a><span class="in">```{r marginal-plot-treas, fig.cap = "Figure 2: Marginal posterior distribution for 10Y US Treasury returns(Duration hedge)."}</span></span>
-<span id="cb5-240"><a href="#cb5-240" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-241"><a href="#cb5-241" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_posterior_marginals</span>(</span>
-<span id="cb5-242"><a href="#cb5-242" aria-hidden="true" tabindex="-1"></a>  <span class="at">draws_df =</span> post_burn_draws,</span>
-<span id="cb5-243"><a href="#cb5-243" aria-hidden="true" tabindex="-1"></a>  <span class="at">asset_name =</span> <span class="st">"US_Treas_10Y"</span>,</span>
-<span id="cb5-244"><a href="#cb5-244" aria-hidden="true" tabindex="-1"></a>  <span class="at">true_val =</span> <span class="fl">0.035</span> <span class="sc">/</span> <span class="dv">252</span></span>
-<span id="cb5-245"><a href="#cb5-245" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb5-246"><a href="#cb5-246" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-247"><a href="#cb5-247" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb5-248"><a href="#cb5-248" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-251"><a href="#cb5-251" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb5-252"><a href="#cb5-252" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: marginal-stats</span></span>
-<span id="cb5-253"><a href="#cb5-253" aria-hidden="true" tabindex="-1"></a><span class="co">#| echo: false</span></span>
-<span id="cb5-254"><a href="#cb5-254" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-255"><a href="#cb5-255" aria-hidden="true" tabindex="-1"></a><span class="co"># Helper: format a daily return as a percentage string</span></span>
-<span id="cb5-256"><a href="#cb5-256" aria-hidden="true" tabindex="-1"></a>pct <span class="ot">&lt;-</span> <span class="cf">function</span>(x, <span class="at">digits =</span> <span class="dv">2</span>) <span class="fu">sprintf</span>(<span class="st">"%+.*f%%"</span>, digits, x <span class="sc">*</span> <span class="dv">100</span>)</span>
-<span id="cb5-257"><a href="#cb5-257" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-258"><a href="#cb5-258" aria-hidden="true" tabindex="-1"></a><span class="co"># Exact (analytic) posterior quantities</span></span>
-<span id="cb5-259"><a href="#cb5-259" aria-hidden="true" tabindex="-1"></a>n_obs   <span class="ot">&lt;-</span> <span class="fu">nrow</span>(model_fixture<span class="sc">$</span>returns_mat)</span>
-<span id="cb5-260"><a href="#cb5-260" aria-hidden="true" tabindex="-1"></a>x_bar   <span class="ot">&lt;-</span> <span class="fu">colMeans</span>(model_fixture<span class="sc">$</span>returns_mat)</span>
-<span id="cb5-261"><a href="#cb5-261" aria-hidden="true" tabindex="-1"></a>post_sd <span class="ot">&lt;-</span> <span class="fu">sqrt</span>(<span class="fu">diag</span>(model_fixture<span class="sc">$</span>cov_emp) <span class="sc">/</span> n_obs)</span>
-<span id="cb5-262"><a href="#cb5-262" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-263"><a href="#cb5-263" aria-hidden="true" tabindex="-1"></a><span class="co"># True values used to generate the data (from R/generate_data.R)</span></span>
-<span id="cb5-264"><a href="#cb5-264" aria-hidden="true" tabindex="-1"></a>true_tech  <span class="ot">&lt;-</span> <span class="fl">0.110</span> <span class="sc">/</span> <span class="dv">252</span></span>
-<span id="cb5-265"><a href="#cb5-265" aria-hidden="true" tabindex="-1"></a>true_treas <span class="ot">&lt;-</span> <span class="fl">0.035</span> <span class="sc">/</span> <span class="dv">252</span></span>
-<span id="cb5-266"><a href="#cb5-266" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-267"><a href="#cb5-267" aria-hidden="true" tabindex="-1"></a><span class="co"># --- Tech Growth ---</span></span>
-<span id="cb5-268"><a href="#cb5-268" aria-hidden="true" tabindex="-1"></a>tech_mean  <span class="ot">&lt;-</span> <span class="fu">mean</span>(post_burn_draws<span class="sc">$</span>Tech_Growth)          <span class="co"># MCMC posterior mean</span></span>
-<span id="cb5-269"><a href="#cb5-269" aria-hidden="true" tabindex="-1"></a>tech_ci    <span class="ot">&lt;-</span> <span class="fu">quantile</span>(post_burn_draws<span class="sc">$</span>Tech_Growth, <span class="fu">c</span>(<span class="fl">0.05</span>, <span class="fl">0.95</span>))</span>
-<span id="cb5-270"><a href="#cb5-270" aria-hidden="true" tabindex="-1"></a>tech_sd    <span class="ot">&lt;-</span> post_sd[<span class="st">"Tech_Growth"</span>]</span>
-<span id="cb5-271"><a href="#cb5-271" aria-hidden="true" tabindex="-1"></a>tech_z     <span class="ot">&lt;-</span> (x_bar[<span class="st">"Tech_Growth"</span>] <span class="sc">-</span> true_tech) <span class="sc">/</span> tech_sd</span>
-<span id="cb5-272"><a href="#cb5-272" aria-hidden="true" tabindex="-1"></a>tech_ann   <span class="ot">&lt;-</span> x_bar[<span class="st">"Tech_Growth"</span>] <span class="sc">*</span> <span class="dv">252</span>                 <span class="co"># annualized sample drift</span></span>
-<span id="cb5-273"><a href="#cb5-273" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-274"><a href="#cb5-274" aria-hidden="true" tabindex="-1"></a><span class="co"># --- US Treasuries ---</span></span>
-<span id="cb5-275"><a href="#cb5-275" aria-hidden="true" tabindex="-1"></a>treas_mean <span class="ot">&lt;-</span> <span class="fu">mean</span>(post_burn_draws<span class="sc">$</span>US_Treas_10Y)</span>
-<span id="cb5-276"><a href="#cb5-276" aria-hidden="true" tabindex="-1"></a>treas_ci   <span class="ot">&lt;-</span> <span class="fu">quantile</span>(post_burn_draws<span class="sc">$</span>US_Treas_10Y, <span class="fu">c</span>(<span class="fl">0.05</span>, <span class="fl">0.95</span>))</span>
-<span id="cb5-277"><a href="#cb5-277" aria-hidden="true" tabindex="-1"></a>treas_sd   <span class="ot">&lt;-</span> post_sd[<span class="st">"US_Treas_10Y"</span>]</span>
-<span id="cb5-278"><a href="#cb5-278" aria-hidden="true" tabindex="-1"></a>treas_z    <span class="ot">&lt;-</span> (x_bar[<span class="st">"US_Treas_10Y"</span>] <span class="sc">-</span> true_treas) <span class="sc">/</span> treas_sd</span>
-<span id="cb5-279"><a href="#cb5-279" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-280"><a href="#cb5-280" aria-hidden="true" tabindex="-1"></a><span class="co"># Days of data needed to shrink Tech's posterior SD to 0.01% per day</span></span>
-<span id="cb5-281"><a href="#cb5-281" aria-hidden="true" tabindex="-1"></a>days_needed <span class="ot">&lt;-</span> <span class="fu">ceiling</span>((<span class="fu">sqrt</span>(<span class="fu">diag</span>(model_fixture<span class="sc">$</span>cov_emp))[<span class="st">"Tech_Growth"</span>] <span class="sc">/</span> <span class="fl">0.0001</span>)<span class="sc">^</span><span class="dv">2</span>)</span>
-<span id="cb5-282"><a href="#cb5-282" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb5-283"><a href="#cb5-283" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-284"><a href="#cb5-284" aria-hidden="true" tabindex="-1"></a>**Understanding the Marginal Density Plots**</span>
-<span id="cb5-285"><a href="#cb5-285" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-286"><a href="#cb5-286" aria-hidden="true" tabindex="-1"></a>**Tech Growth:** The posterior centers on the sample mean, </span>
-<span id="cb5-287"><a href="#cb5-287" aria-hidden="true" tabindex="-1"></a>approximately <span class="in">`r sprintf("%.2f%%", tech_mean*100)`</span> daily, with a posterior standard </span>
-<span id="cb5-288"><a href="#cb5-288" aria-hidden="true" tabindex="-1"></a>deviation of about <span class="in">`r sprintf("%.2f%%", tech_sd*100)`</span>. The 90% credible interval runs </span>
-<span id="cb5-289"><a href="#cb5-289" aria-hidden="true" tabindex="-1"></a>from <span class="in">`r pct(tech_ci[1])`</span> to <span class="in">`r pct(tech_ci[2])`</span>. The true value used </span>
-<span id="cb5-290"><a href="#cb5-290" aria-hidden="true" tabindex="-1"></a>to generate the data, <span class="in">`r pct(true_tech, 3)`</span> daily (+11.0% annualized), </span>
-<span id="cb5-291"><a href="#cb5-291" aria-hidden="true" tabindex="-1"></a>lies about <span class="in">`r sprintf("%.1f", tech_z)`</span> posterior standard deviations </span>
-<span id="cb5-292"><a href="#cb5-292" aria-hidden="true" tabindex="-1"></a>below the center.</span>
-<span id="cb5-293"><a href="#cb5-293" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-294"><a href="#cb5-294" aria-hidden="true" tabindex="-1"></a>This is not a sampler error. By chance, this <span class="in">`r n_obs`</span>-day sample </span>
-<span id="cb5-295"><a href="#cb5-295" aria-hidden="true" tabindex="-1"></a>shows a Tech Growth drift of roughly <span class="in">`r sprintf("%.0f%%", tech_ann * 100)`</span> </span>
-<span id="cb5-296"><a href="#cb5-296" aria-hidden="true" tabindex="-1"></a>annualized. The posterior correctly reports what the data support; </span>
-<span id="cb5-297"><a href="#cb5-297" aria-hidden="true" tabindex="-1"></a>the data simply don't support the true value.</span>
-<span id="cb5-298"><a href="#cb5-298" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-299"><a href="#cb5-299" aria-hidden="true" tabindex="-1"></a>**US Treasuries (10Y):** The posterior centers near <span class="in">`r sprintf("%.2f%%", treas_mean*100)`</span></span>
-<span id="cb5-300"><a href="#cb5-300" aria-hidden="true" tabindex="-1"></a>daily, with a standard deviation of about <span class="in">`r sprintf("%.2f%%", treas_sd*100)`</span> and a 90% </span>
-<span id="cb5-301"><a href="#cb5-301" aria-hidden="true" tabindex="-1"></a>credible interval of <span class="in">`r pct(treas_ci[1])`</span> to <span class="in">`r pct(treas_ci[2])`</span>. </span>
-<span id="cb5-302"><a href="#cb5-302" aria-hidden="true" tabindex="-1"></a>The true value (<span class="in">`r pct(true_treas, 3)`</span> daily) lies about </span>
-<span id="cb5-303"><a href="#cb5-303" aria-hidden="true" tabindex="-1"></a><span class="in">`r sprintf("%.1f", abs(treas_z))`</span> standard deviations from the center.</span>
-<span id="cb5-304"><a href="#cb5-304" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-305"><a href="#cb5-305" aria-hidden="true" tabindex="-1"></a>Narrowing Tech Growth's uncertainty to 0.01% daily would take about </span>
-<span id="cb5-306"><a href="#cb5-306" aria-hidden="true" tabindex="-1"></a><span class="in">`r format(days_needed, big.mark = ",")`</span> trading days of data.</span>
-<span id="cb5-307"><a href="#cb5-307" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-308"><a href="#cb5-308" aria-hidden="true" tabindex="-1"></a>::: {.callout-important icon=false}</span>
-<span id="cb5-309"><a href="#cb5-309" aria-hidden="true" tabindex="-1"></a><span class="fu">## Key Takeaway: Parameter Recovery Is a Data Problem, Not a Sampler Problem</span></span>
-<span id="cb5-310"><a href="#cb5-310" aria-hidden="true" tabindex="-1"></a>MCMC recovers the **posterior**, not the **truth**. With 250 daily observations, mean returns are poorly identified: Tech Growth's posterior standard deviation (≈0.10% daily) is more than twice its true mean. Narrowing that uncertainty to about 0.01% daily would take roughly  <span class="in">`r format(days_needed, big.mark=",")`</span> trading days of data. For risk managers, a year of history can't reliably tell a high-drift asset from a low-drift one. That estimation uncertainty is exactly what the VaR and ES credible intervals are meant to capture.</span>
-<span id="cb5-311"><a href="#cb5-311" aria-hidden="true" tabindex="-1"></a>:::</span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "10-Factor Portfolio Risk &amp; Tail Estimation"</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="an">subtitle:</span><span class="co"> "Evaluating Parameter Uncertainty in Expected Returns Against Analytical Benchmarks"</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="in">```{r setup}</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="co">#| include: false</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span>opts_chunk<span class="sc">$</span><span class="fu">set</span>(<span class="at">echo =</span> <span class="cn">TRUE</span>, <span class="at">message =</span> <span class="cn">FALSE</span>, <span class="at">warning =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(gt)</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(scales)</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"R/generate_data.R"</span>)</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"R/metropolis_sampler.R"</span>)</span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"R/risk_functions.R"</span>)</span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"R/diagnostics.R"</span>)</span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"R/plots.R"</span>)</span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"R/analysis.R"</span>)</span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a><span class="co"># Run the shared 10-factor analysis (four chains, risk table, exact benchmark, diagnostics)</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>res <span class="ot">&lt;-</span> <span class="fu">run_analysis</span>()</span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>s   <span class="ot">&lt;-</span> res<span class="sc">$</span>settings</span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>model_fixture   <span class="ot">&lt;-</span> res<span class="sc">$</span>fixture</span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>post_burn_draws <span class="ot">&lt;-</span> res<span class="sc">$</span>post_burn</span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>risk_table      <span class="ot">&lt;-</span> res<span class="sc">$</span>risk_table</span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a>gen             <span class="ot">&lt;-</span> <span class="fu">synthetic_params</span>()</span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a><span class="co"># Pre-formatted text variables for inline reporting</span></span>
+<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a>pct2         <span class="ot">&lt;-</span> <span class="cf">function</span>(x, <span class="at">digits =</span> <span class="dv">2</span>) <span class="fu">sprintf</span>(<span class="fu">paste0</span>(<span class="st">"%."</span>, digits, <span class="st">"f%%"</span>), x <span class="sc">*</span> <span class="dv">100</span>)</span>
+<span id="cb4-33"><a href="#cb4-33" aria-hidden="true" tabindex="-1"></a>alpha_lbl    <span class="ot">&lt;-</span> <span class="fu">sprintf</span>(<span class="st">"%.0f</span><span class="sc">\\</span><span class="st">%%"</span>, s<span class="sc">$</span>alpha <span class="sc">*</span> <span class="dv">100</span>)</span>
+<span id="cb4-34"><a href="#cb4-34" aria-hidden="true" tabindex="-1"></a>acc_rate_txt <span class="ot">&lt;-</span> <span class="fu">pct2</span>(res<span class="sc">$</span>acceptance_rate, <span class="dv">1</span>)</span>
+<span id="cb4-35"><a href="#cb4-35" aria-hidden="true" tabindex="-1"></a>n_draws_txt  <span class="ot">&lt;-</span> <span class="fu">comma</span>(res<span class="sc">$</span>n_keep)</span>
+<span id="cb4-36"><a href="#cb4-36" aria-hidden="true" tabindex="-1"></a>prior_exp    <span class="ot">&lt;-</span> <span class="fu">round</span>(<span class="sc">-</span><span class="fu">log10</span>(model_fixture<span class="sc">$</span>inv_prior_var))</span>
+<span id="cb4-37"><a href="#cb4-37" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb4-38"><a href="#cb4-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-39"><a href="#cb4-39" aria-hidden="true" tabindex="-1"></a><span class="fu">### Introduction</span></span>
+<span id="cb4-40"><a href="#cb4-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-41"><a href="#cb4-41" aria-hidden="true" tabindex="-1"></a>This chapter transitions from two-dimensional toy mechanics to a multi-asset portfolio comprising <span class="in">`r xfun::numbers_to_words(res$d)`</span> correlated risk factor exposures—spanning core equity betas, corporate credit carry, duration hedges, and commodities. </span>
+<span id="cb4-42"><a href="#cb4-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-43"><a href="#cb4-43" aria-hidden="true" tabindex="-1"></a>To provide a mathematically rigorous audit baseline, we formulate a Bayesian return model with a known closed-form solution. We model daily returns as multivariate normal $\mathbf{R} \sim \mathcal{N}(\boldsymbol{\mu}, \mathbf{\Sigma})$ with a diffuse Gaussian prior on the mean vector $\boldsymbol{\mu} \sim \mathcal{N}(\mathbf{0}, 10^{<span class="in">`r prior_exp`</span>} \mathbf{I})$ and condition the covariance matrix on the empirical sample estimate $\mathbf{\Sigma} = \hat{\mathbf{\Sigma}}_{\text{emp}}$. Under this conjugate structure, the joint posterior distribution of expected returns is analytically known:</span>
+<span id="cb4-44"><a href="#cb4-44" aria-hidden="true" tabindex="-1"></a>$$\boldsymbol{\mu} \mid \mathbf{R}, \mathbf{\Sigma} \sim \mathcal{N}\left(\bar{\mathbf{x}}, \frac{1}{n} \mathbf{\Sigma}\right)$$</span>
+<span id="cb4-45"><a href="#cb4-45" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-46"><a href="#cb4-46" aria-hidden="true" tabindex="-1"></a>While a closed-form solution exists for this specific Gaussian model, using it as our target allows us to directly benchmark MCMC performance. We can compare the empirical draws, standard errors, and credible intervals from our first-principles Metropolis sampler directly against the analytical truth.</span>
+<span id="cb4-47"><a href="#cb4-47" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-48"><a href="#cb4-48" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-49"><a href="#cb4-49" aria-hidden="true" tabindex="-1"></a><span class="fu">### Sampling the 10-Factor Joint Posterior</span></span>
+<span id="cb4-50"><a href="#cb4-50" aria-hidden="true" tabindex="-1"></a>The sampler processes <span class="in">`r res$n_obs`</span> trading days of observed returns across all <span class="in">`r res$d`</span> assets simultaneously. Starting cold at $\boldsymbol{\mu}_0 = \mathbf{0}$, the chain completes <span class="in">`r comma(s$n_iter)`</span> iterations, discarding the first <span class="in">`r comma(s$burn_in)`</span> iterations to eliminate initialization bias.</span>
+<span id="cb4-51"><a href="#cb4-51" aria-hidden="true" tabindex="-1"></a>The chain operates at an empirical acceptance rate of <span class="in">`{r} acc_rate_txt`</span>.</span>
+<span id="cb4-52"><a href="#cb4-52" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-53"><a href="#cb4-53" aria-hidden="true" tabindex="-1"></a><span class="in">```{r factor-risk-table, echo = TRUE}</span></span>
+<span id="cb4-54"><a href="#cb4-54" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-55"><a href="#cb4-55" aria-hidden="true" tabindex="-1"></a>risk_table <span class="sc">%&gt;%</span></span>
+<span id="cb4-56"><a href="#cb4-56" aria-hidden="true" tabindex="-1"></a>  <span class="fu">gt</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb4-57"><a href="#cb4-57" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_header</span>(</span>
+<span id="cb4-58"><a href="#cb4-58" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="fu">md</span>(<span class="st">"**10-Asset Portfolio Tail Risk Estimates (1-Day Horizon)**"</span>),</span>
+<span id="cb4-59"><a href="#cb4-59" aria-hidden="true" tabindex="-1"></a>    <span class="at">subtitle =</span> <span class="st">"Posterior mean risk metrics and 90% Bayesian credible intervals under parameter uncertainty"</span></span>
+<span id="cb4-60"><a href="#cb4-60" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb4-61"><a href="#cb4-61" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cols_label</span>(</span>
+<span id="cb4-62"><a href="#cb4-62" aria-hidden="true" tabindex="-1"></a>    <span class="at">metric =</span> <span class="st">"Tail Risk Measure"</span>,</span>
+<span id="cb4-63"><a href="#cb4-63" aria-hidden="true" tabindex="-1"></a>    <span class="at">mean_estimate =</span> <span class="st">"Posterior Mean"</span>,</span>
+<span id="cb4-64"><a href="#cb4-64" aria-hidden="true" tabindex="-1"></a>    <span class="at">ci_05 =</span> <span class="st">"5th Percentile"</span>,</span>
+<span id="cb4-65"><a href="#cb4-65" aria-hidden="true" tabindex="-1"></a>    <span class="at">ci_95 =</span> <span class="st">"95th Percentile"</span></span>
+<span id="cb4-66"><a href="#cb4-66" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb4-67"><a href="#cb4-67" aria-hidden="true" tabindex="-1"></a>  <span class="fu">fmt_percent</span>(<span class="at">columns =</span> <span class="fu">c</span>(mean_estimate, ci_05, ci_95), <span class="at">decimals =</span> <span class="dv">2</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb4-68"><a href="#cb4-68" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_options</span>(<span class="at">table.font.size =</span> <span class="dv">12</span>)</span>
+<span id="cb4-69"><a href="#cb4-69" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-70"><a href="#cb4-70" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb4-71"><a href="#cb4-71" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-72"><a href="#cb4-72" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-75"><a href="#cb4-75" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb4-76"><a href="#cb4-76" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: tail-context-stats</span></span>
+<span id="cb4-77"><a href="#cb4-77" aria-hidden="true" tabindex="-1"></a><span class="co">#| echo: false</span></span>
+<span id="cb4-78"><a href="#cb4-78" aria-hidden="true" tabindex="-1"></a>pct_tex <span class="ot">&lt;-</span> <span class="cf">function</span>(x) <span class="fu">sprintf</span>(<span class="st">"%.2f</span><span class="sc">\\</span><span class="st">%%"</span>, x <span class="sc">*</span> <span class="dv">100</span>)</span>
+<span id="cb4-79"><a href="#cb4-79" aria-hidden="true" tabindex="-1"></a>var_lo_txt    <span class="ot">&lt;-</span> <span class="fu">pct_tex</span>(risk_table<span class="sc">$</span>ci_05[<span class="dv">1</span>])</span>
+<span id="cb4-80"><a href="#cb4-80" aria-hidden="true" tabindex="-1"></a>var_hi_txt    <span class="ot">&lt;-</span> <span class="fu">pct_tex</span>(risk_table<span class="sc">$</span>ci_95[<span class="dv">1</span>])</span>
+<span id="cb4-81"><a href="#cb4-81" aria-hidden="true" tabindex="-1"></a>var_spread_bp <span class="ot">&lt;-</span> <span class="fu">round</span>((risk_table<span class="sc">$</span>ci_95[<span class="dv">1</span>] <span class="sc">-</span> risk_table<span class="sc">$</span>ci_05[<span class="dv">1</span>]) <span class="sc">*</span> <span class="fl">1e4</span>)</span>
+<span id="cb4-82"><a href="#cb4-82" aria-hidden="true" tabindex="-1"></a>var_mean_tex  <span class="ot">&lt;-</span> <span class="fu">pct_tex</span>(risk_table<span class="sc">$</span>mean_estimate[<span class="dv">1</span>])</span>
+<span id="cb4-83"><a href="#cb4-83" aria-hidden="true" tabindex="-1"></a>es_mean_tex   <span class="ot">&lt;-</span> <span class="fu">pct_tex</span>(risk_table<span class="sc">$</span>mean_estimate[<span class="dv">2</span>])</span>
+<span id="cb4-84"><a href="#cb4-84" aria-hidden="true" tabindex="-1"></a>es_var_ratio  <span class="ot">&lt;-</span> <span class="fu">sprintf</span>(<span class="st">"%.2f"</span>, risk_table<span class="sc">$</span>mean_estimate[<span class="dv">2</span>] <span class="sc">/</span> risk_table<span class="sc">$</span>mean_estimate[<span class="dv">1</span>])</span>
+<span id="cb4-85"><a href="#cb4-85" aria-hidden="true" tabindex="-1"></a>k_var_txt     <span class="ot">&lt;-</span> <span class="fu">sprintf</span>(<span class="st">"%.3f"</span>, res<span class="sc">$</span>exact<span class="sc">$</span>k_var)</span>
+<span id="cb4-86"><a href="#cb4-86" aria-hidden="true" tabindex="-1"></a>k_es_txt      <span class="ot">&lt;-</span> <span class="fu">sprintf</span>(<span class="st">"%.3f"</span>, res<span class="sc">$</span>exact<span class="sc">$</span>k_es)</span>
+<span id="cb4-87"><a href="#cb4-87" aria-hidden="true" tabindex="-1"></a>z_ci_txt      <span class="ot">&lt;-</span> <span class="fu">sprintf</span>(<span class="st">"%.3f"</span>, res<span class="sc">$</span>exact<span class="sc">$</span>z_ci)</span>
+<span id="cb4-88"><a href="#cb4-88" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb4-89"><a href="#cb4-89" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-90"><a href="#cb4-90" aria-hidden="true" tabindex="-1"></a><span class="fu">#### Context: Isolating Parameter Risk in the Mean Vector</span></span>
+<span id="cb4-91"><a href="#cb4-91" aria-hidden="true" tabindex="-1"></a>Because the return distribution is modeled as multivariate normal and $\mathbf{\Sigma}$ is fixed at the sample estimate, the portfolio tail metrics reflect the properties of Gaussian loss distributions under estimation uncertainty:</span>
+<span id="cb4-92"><a href="#cb4-92" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-93"><a href="#cb4-93" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**Mean Uncertainty Bounds ($\text{VaR}_{`r alpha_lbl`}$):** For an equal-weighted portfolio, parametric Value at Risk is governed by $\text{VaR}_{<span class="in">`r alpha_lbl`</span>} \approx -\mathbf{w}'\boldsymbol{\mu} + <span class="in">`r k_var_txt`</span> \cdot \sigma_p$. Because covariance is held constant, the <span class="in">`r var_spread_bp`</span> basis point spread between the 5th and 95th percentiles ($<span class="in">`r var_lo_txt`</span>$ to $<span class="in">`r var_hi_txt`</span>$) reflects the estimation uncertainty of the portfolio mean alone ($\pm <span class="in">`r z_ci_txt`</span> \cdot \sigma_p / \sqrt{n}$), setting aside covariance uncertainty.</span>
+<span id="cb4-94"><a href="#cb4-94" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**Expected Shortfall Ratio ($\text{ES}_{`r alpha_lbl`}$):** The ratio of Expected Shortfall to Value at Risk ($<span class="in">`r es_mean_tex`</span> / <span class="in">`r var_mean_tex`</span> \approx <span class="in">`r es_var_ratio`</span>$) reflects standard Gaussian tail expectation constants ($\approx <span class="in">`r k_es_txt`</span> / <span class="in">`r k_var_txt`</span>$), adjusted for the portfolio drift. Under a normal likelihood, this metric captures linear downside expectation rather than excess kurtosis or heavy-tailed structural shocks.</span>
+<span id="cb4-95"><a href="#cb4-95" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-96"><a href="#cb4-96" aria-hidden="true" tabindex="-1"></a><span class="fu">### Benchmarking MCMC Against the Exact Posterior</span></span>
+<span id="cb4-97"><a href="#cb4-97" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-98"><a href="#cb4-98" aria-hidden="true" tabindex="-1"></a>Because this model is conjugate, the exact posterior is known. With the </span>
+<span id="cb4-99"><a href="#cb4-99" aria-hidden="true" tabindex="-1"></a>diffuse prior <span class="sc">\\</span>(<span class="sc">\\</span>boldsymbol{<span class="sc">\\</span>mu} <span class="sc">\\</span>sim <span class="sc">\\</span>mathcal{N}(<span class="sc">\\</span>mathbf{0}, 10^{<span class="in">`r prior_exp`</span>}<span class="sc">\\</span>mathbf{I})<span class="sc">\\</span>), </span>
+<span id="cb4-100"><a href="#cb4-100" aria-hidden="true" tabindex="-1"></a>the posterior is Gaussian with covariance </span>
+<span id="cb4-101"><a href="#cb4-101" aria-hidden="true" tabindex="-1"></a><span class="sc">\\</span>(<span class="sc">\\</span>mathbf{V} = (n<span class="sc">\\</span>hat{<span class="sc">\\</span>Sigma}^{-1} + 10^{-<span class="in">`r prior_exp`</span>}<span class="sc">\\</span>mathbf{I})^{-1}<span class="sc">\\</span>). Portfolio VaR and </span>
+<span id="cb4-102"><a href="#cb4-102" aria-hidden="true" tabindex="-1"></a>ES are linear in <span class="sc">\\</span>(<span class="sc">\\</span>boldsymbol{<span class="sc">\\</span>mu}<span class="sc">\\</span>), so their exact posteriors are also normal. </span>
+<span id="cb4-103"><a href="#cb4-103" aria-hidden="true" tabindex="-1"></a>That lets us check every MCMC output against the true answer.</span>
+<span id="cb4-104"><a href="#cb4-104" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-107"><a href="#cb4-107" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb4-108"><a href="#cb4-108" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: exact-benchmark</span></span>
+<span id="cb4-109"><a href="#cb4-109" aria-hidden="true" tabindex="-1"></a><span class="co">#| echo: false</span></span>
+<span id="cb4-110"><a href="#cb4-110" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-111"><a href="#cb4-111" aria-hidden="true" tabindex="-1"></a>ex <span class="ot">&lt;-</span> res<span class="sc">$</span>exact</span>
+<span id="cb4-112"><a href="#cb4-112" aria-hidden="true" tabindex="-1"></a>fmt_ci <span class="ot">&lt;-</span> <span class="cf">function</span>(ci) <span class="fu">sprintf</span>(<span class="st">"%.2f%% – %.2f%%"</span>, ci[<span class="dv">1</span>] <span class="sc">*</span> <span class="dv">100</span>, ci[<span class="dv">2</span>] <span class="sc">*</span> <span class="dv">100</span>)</span>
+<span id="cb4-113"><a href="#cb4-113" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb4-114"><a href="#cb4-114" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-117"><a href="#cb4-117" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb4-118"><a href="#cb4-118" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: tbl-tail-benchmark</span></span>
+<span id="cb4-119"><a href="#cb4-119" aria-hidden="true" tabindex="-1"></a><span class="co">#| echo: false</span></span>
+<span id="cb4-120"><a href="#cb4-120" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-121"><a href="#cb4-121" aria-hidden="true" tabindex="-1"></a>tail_bench <span class="ot">&lt;-</span> <span class="fu">tibble</span>(</span>
+<span id="cb4-122"><a href="#cb4-122" aria-hidden="true" tabindex="-1"></a>  <span class="at">Metric =</span> <span class="fu">c</span>(<span class="fu">sprintf</span>(<span class="st">"VaR %.0f%% — mean"</span>, s<span class="sc">$</span>alpha <span class="sc">*</span> <span class="dv">100</span>), <span class="fu">sprintf</span>(<span class="st">"VaR %.0f%% — 90%% interval"</span>, s<span class="sc">$</span>alpha <span class="sc">*</span> <span class="dv">100</span>),</span>
+<span id="cb4-123"><a href="#cb4-123" aria-hidden="true" tabindex="-1"></a>             <span class="fu">sprintf</span>(<span class="st">"ES %.0f%% — mean"</span>, s<span class="sc">$</span>alpha <span class="sc">*</span> <span class="dv">100</span>),  <span class="fu">sprintf</span>(<span class="st">"ES %.0f%% — 90%% interval"</span>, s<span class="sc">$</span>alpha <span class="sc">*</span> <span class="dv">100</span>)),</span>
+<span id="cb4-124"><a href="#cb4-124" aria-hidden="true" tabindex="-1"></a>  <span class="at">MCMC =</span> <span class="fu">c</span>(</span>
+<span id="cb4-125"><a href="#cb4-125" aria-hidden="true" tabindex="-1"></a>    <span class="fu">sprintf</span>(<span class="st">"%.3f%%"</span>, risk_table<span class="sc">$</span>mean_estimate[<span class="dv">1</span>] <span class="sc">*</span> <span class="dv">100</span>),</span>
+<span id="cb4-126"><a href="#cb4-126" aria-hidden="true" tabindex="-1"></a>    <span class="fu">fmt_ci</span>(<span class="fu">c</span>(risk_table<span class="sc">$</span>ci_05[<span class="dv">1</span>], risk_table<span class="sc">$</span>ci_95[<span class="dv">1</span>])),</span>
+<span id="cb4-127"><a href="#cb4-127" aria-hidden="true" tabindex="-1"></a>    <span class="fu">sprintf</span>(<span class="st">"%.3f%%"</span>, risk_table<span class="sc">$</span>mean_estimate[<span class="dv">2</span>] <span class="sc">*</span> <span class="dv">100</span>),</span>
+<span id="cb4-128"><a href="#cb4-128" aria-hidden="true" tabindex="-1"></a>    <span class="fu">fmt_ci</span>(<span class="fu">c</span>(risk_table<span class="sc">$</span>ci_05[<span class="dv">2</span>], risk_table<span class="sc">$</span>ci_95[<span class="dv">2</span>]))</span>
+<span id="cb4-129"><a href="#cb4-129" aria-hidden="true" tabindex="-1"></a>  ),</span>
+<span id="cb4-130"><a href="#cb4-130" aria-hidden="true" tabindex="-1"></a>  <span class="at">Exact =</span> <span class="fu">c</span>(</span>
+<span id="cb4-131"><a href="#cb4-131" aria-hidden="true" tabindex="-1"></a>    <span class="fu">sprintf</span>(<span class="st">"%.3f%%"</span>, ex<span class="sc">$</span>var <span class="sc">*</span> <span class="dv">100</span>),</span>
+<span id="cb4-132"><a href="#cb4-132" aria-hidden="true" tabindex="-1"></a>    <span class="fu">fmt_ci</span>(ex<span class="sc">$</span>var_ci),</span>
+<span id="cb4-133"><a href="#cb4-133" aria-hidden="true" tabindex="-1"></a>    <span class="fu">sprintf</span>(<span class="st">"%.3f%%"</span>, ex<span class="sc">$</span>es <span class="sc">*</span> <span class="dv">100</span>),</span>
+<span id="cb4-134"><a href="#cb4-134" aria-hidden="true" tabindex="-1"></a>    <span class="fu">fmt_ci</span>(ex<span class="sc">$</span>es_ci)</span>
+<span id="cb4-135"><a href="#cb4-135" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb4-136"><a href="#cb4-136" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb4-137"><a href="#cb4-137" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-138"><a href="#cb4-138" aria-hidden="true" tabindex="-1"></a>width_ratio <span class="ot">&lt;-</span> res<span class="sc">$</span>width_ratio</span>
+<span id="cb4-139"><a href="#cb4-139" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-140"><a href="#cb4-140" aria-hidden="true" tabindex="-1"></a>tail_bench <span class="sc">%&gt;%</span></span>
+<span id="cb4-141"><a href="#cb4-141" aria-hidden="true" tabindex="-1"></a>  <span class="fu">gt</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb4-142"><a href="#cb4-142" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_header</span>(</span>
+<span id="cb4-143"><a href="#cb4-143" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="fu">md</span>(<span class="st">"**Tail Risk: MCMC vs. Exact Posterior**"</span>),</span>
+<span id="cb4-144"><a href="#cb4-144" aria-hidden="true" tabindex="-1"></a>    <span class="at">subtitle =</span> <span class="st">"Equal-weighted portfolio, 1-day horizon"</span></span>
+<span id="cb4-145"><a href="#cb4-145" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb4-146"><a href="#cb4-146" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_options</span>(<span class="at">table.font.size =</span> <span class="dv">12</span>)</span>
+<span id="cb4-147"><a href="#cb4-147" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb4-148"><a href="#cb4-148" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-151"><a href="#cb4-151" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb4-152"><a href="#cb4-152" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: tbl-factor-benchmark</span></span>
+<span id="cb4-153"><a href="#cb4-153" aria-hidden="true" tabindex="-1"></a><span class="co">#| echo: false</span></span>
+<span id="cb4-154"><a href="#cb4-154" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-155"><a href="#cb4-155" aria-hidden="true" tabindex="-1"></a>factor_bench <span class="ot">&lt;-</span> res<span class="sc">$</span>factor_bench</span>
+<span id="cb4-156"><a href="#cb4-156" aria-hidden="true" tabindex="-1"></a>under      <span class="ot">&lt;-</span> factor_bench <span class="sc">|&gt;</span> <span class="fu">filter</span>(SD_Ratio <span class="sc">&lt;</span> <span class="dv">1</span>)</span>
+<span id="cb4-157"><a href="#cb4-157" aria-hidden="true" tabindex="-1"></a>n_under    <span class="ot">&lt;-</span> <span class="fu">nrow</span>(under)</span>
+<span id="cb4-158"><a href="#cb4-158" aria-hidden="true" tabindex="-1"></a>sd_rng     <span class="ot">&lt;-</span> <span class="fu">sprintf</span>(<span class="st">"%.2f–%.2f"</span>, <span class="fu">min</span>(under<span class="sc">$</span>SD_Ratio), <span class="fu">max</span>(under<span class="sc">$</span>SD_Ratio))</span>
+<span id="cb4-159"><a href="#cb4-159" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-160"><a href="#cb4-160" aria-hidden="true" tabindex="-1"></a>factor_bench <span class="sc">%&gt;%</span></span>
+<span id="cb4-161"><a href="#cb4-161" aria-hidden="true" tabindex="-1"></a>  <span class="fu">gt</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb4-162"><a href="#cb4-162" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_header</span>(</span>
+<span id="cb4-163"><a href="#cb4-163" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="fu">md</span>(<span class="st">"**Per-Factor Posterior: MCMC vs. Exact**"</span>),</span>
+<span id="cb4-164"><a href="#cb4-164" aria-hidden="true" tabindex="-1"></a>    <span class="at">subtitle =</span> <span class="st">"Daily expected returns; SD Ratio &lt; 1 means MCMC under-disperses"</span></span>
+<span id="cb4-165"><a href="#cb4-165" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb4-166"><a href="#cb4-166" aria-hidden="true" tabindex="-1"></a>  <span class="fu">fmt_percent</span>(<span class="at">columns =</span> <span class="fu">c</span>(MCMC_Mean, Exact_Mean, MCMC_SD, Exact_SD), <span class="at">decimals =</span> <span class="dv">3</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb4-167"><a href="#cb4-167" aria-hidden="true" tabindex="-1"></a>  <span class="fu">fmt_number</span>(<span class="at">columns =</span> <span class="fu">c</span>(SD_Ratio, Mean_Error_SD), <span class="at">decimals =</span> <span class="dv">2</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb4-168"><a href="#cb4-168" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cols_label</span>(</span>
+<span id="cb4-169"><a href="#cb4-169" aria-hidden="true" tabindex="-1"></a>    <span class="at">MCMC_Mean =</span> <span class="st">"MCMC Mean"</span>, <span class="at">Exact_Mean =</span> <span class="st">"Exact Mean"</span>,</span>
+<span id="cb4-170"><a href="#cb4-170" aria-hidden="true" tabindex="-1"></a>    <span class="at">MCMC_SD =</span> <span class="st">"MCMC SD"</span>, <span class="at">Exact_SD =</span> <span class="st">"Exact SD"</span>,</span>
+<span id="cb4-171"><a href="#cb4-171" aria-hidden="true" tabindex="-1"></a>    <span class="at">SD_Ratio =</span> <span class="st">"SD Ratio"</span>, <span class="at">Mean_Error_SD =</span> <span class="st">"Mean Error (SDs)"</span></span>
+<span id="cb4-172"><a href="#cb4-172" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb4-173"><a href="#cb4-173" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_options</span>(<span class="at">table.font.size =</span> <span class="dv">12</span>)</span>
+<span id="cb4-174"><a href="#cb4-174" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb4-175"><a href="#cb4-175" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-176"><a href="#cb4-176" aria-hidden="true" tabindex="-1"></a><span class="fu">### What the Benchmark Shows</span></span>
+<span id="cb4-177"><a href="#cb4-177" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-178"><a href="#cb4-178" aria-hidden="true" tabindex="-1"></a>The MCMC point estimates match the exact posterior: portfolio VaR and ES </span>
+<span id="cb4-179"><a href="#cb4-179" aria-hidden="true" tabindex="-1"></a>means agree to the second decimal place. The **credible intervals** are </span>
+<span id="cb4-180"><a href="#cb4-180" aria-hidden="true" tabindex="-1"></a>narrower than they should be. The MCMC VaR interval is about </span>
+<span id="cb4-181"><a href="#cb4-181" aria-hidden="true" tabindex="-1"></a><span class="in">`r sprintf("%.0f%%", width_ratio * 100)`</span> of the exact width, so the </span>
+<span id="cb4-182"><a href="#cb4-182" aria-hidden="true" tabindex="-1"></a>sampler understates parameter uncertainty.</span>
+<span id="cb4-183"><a href="#cb4-183" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-184"><a href="#cb4-184" aria-hidden="true" tabindex="-1"></a><span class="in">`r stringr::str_to_sentence(xfun::numbers_to_words(n_under))`</span> of <span class="in">`r xfun::numbers_to_words(res$d)`</span> factors under-disperse (SD ratio <span class="in">`r sd_rng`</span>). The pattern is </span>
+<span id="cb4-185"><a href="#cb4-185" aria-hidden="true" tabindex="-1"></a>broad-based rather than concentrated in the lowest-ESS factors, consistent </span>
+<span id="cb4-186"><a href="#cb4-186" aria-hidden="true" tabindex="-1"></a>with chains that have explored only part of the posterior.</span>
+<span id="cb4-187"><a href="#cb4-187" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-188"><a href="#cb4-188" aria-hidden="true" tabindex="-1"></a>**Implication for risk reporting:** a poorly mixed sampler can report </span>
+<span id="cb4-189"><a href="#cb4-189" aria-hidden="true" tabindex="-1"></a>the right central estimate while producing credible intervals that are </span>
+<span id="cb4-190"><a href="#cb4-190" aria-hidden="true" tabindex="-1"></a>too narrow, which understates parameter risk. Without a closed-form </span>
+<span id="cb4-191"><a href="#cb4-191" aria-hidden="true" tabindex="-1"></a>benchmark or proper diagnostics, this failure would go unnoticed.</span>
+<span id="cb4-192"><a href="#cb4-192" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-193"><a href="#cb4-193" aria-hidden="true" tabindex="-1"></a>**Parameter Distributions vs. Generative Ground Truth**</span>
+<span id="cb4-194"><a href="#cb4-194" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-195"><a href="#cb4-195" aria-hidden="true" tabindex="-1"></a>Because the fixture was simulated from known parameters, we can compare the sampled MCMC distributions against both the generative population values and the analytical sample estimates.</span>
+<span id="cb4-196"><a href="#cb4-196" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-197"><a href="#cb4-197" aria-hidden="true" tabindex="-1"></a><span class="in">```{r marginal-plot-tech, fig.cap = "Figure 1: Marginal posterior distribution for Tech Growth expected daily returns."}</span></span>
+<span id="cb4-198"><a href="#cb4-198" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-199"><a href="#cb4-199" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_posterior_marginals</span>(</span>
+<span id="cb4-200"><a href="#cb4-200" aria-hidden="true" tabindex="-1"></a>  <span class="at">draws_df =</span> post_burn_draws,</span>
+<span id="cb4-201"><a href="#cb4-201" aria-hidden="true" tabindex="-1"></a>  <span class="at">asset_name =</span> <span class="st">"Tech_Growth"</span>,</span>
+<span id="cb4-202"><a href="#cb4-202" aria-hidden="true" tabindex="-1"></a>  <span class="at">true_val =</span> gen<span class="sc">$</span>ann_returns[gen<span class="sc">$</span>asset_names <span class="sc">==</span> <span class="st">"Tech_Growth"</span>] <span class="sc">/</span> <span class="dv">252</span></span>
+<span id="cb4-203"><a href="#cb4-203" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb4-204"><a href="#cb4-204" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-205"><a href="#cb4-205" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb4-206"><a href="#cb4-206" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-207"><a href="#cb4-207" aria-hidden="true" tabindex="-1"></a><span class="in">```{r marginal-plot-treas, fig.cap = "Figure 2: Marginal posterior distribution for 10Y US Treasury returns(Duration hedge)."}</span></span>
+<span id="cb4-208"><a href="#cb4-208" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-209"><a href="#cb4-209" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_posterior_marginals</span>(</span>
+<span id="cb4-210"><a href="#cb4-210" aria-hidden="true" tabindex="-1"></a>  <span class="at">draws_df =</span> post_burn_draws,</span>
+<span id="cb4-211"><a href="#cb4-211" aria-hidden="true" tabindex="-1"></a>  <span class="at">asset_name =</span> <span class="st">"US_Treas_10Y"</span>,</span>
+<span id="cb4-212"><a href="#cb4-212" aria-hidden="true" tabindex="-1"></a>  <span class="at">true_val =</span> gen<span class="sc">$</span>ann_returns[gen<span class="sc">$</span>asset_names <span class="sc">==</span> <span class="st">"US_Treas_10Y"</span>] <span class="sc">/</span> <span class="dv">252</span></span>
+<span id="cb4-213"><a href="#cb4-213" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb4-214"><a href="#cb4-214" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-215"><a href="#cb4-215" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb4-216"><a href="#cb4-216" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-219"><a href="#cb4-219" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb4-220"><a href="#cb4-220" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: marginal-stats</span></span>
+<span id="cb4-221"><a href="#cb4-221" aria-hidden="true" tabindex="-1"></a><span class="co">#| echo: false</span></span>
+<span id="cb4-222"><a href="#cb4-222" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-223"><a href="#cb4-223" aria-hidden="true" tabindex="-1"></a><span class="co"># Helper: format a daily return as a percentage string</span></span>
+<span id="cb4-224"><a href="#cb4-224" aria-hidden="true" tabindex="-1"></a>pct <span class="ot">&lt;-</span> <span class="cf">function</span>(x, <span class="at">digits =</span> <span class="dv">2</span>) <span class="fu">sprintf</span>(<span class="st">"%+.*f%%"</span>, digits, x <span class="sc">*</span> <span class="dv">100</span>)</span>
+<span id="cb4-225"><a href="#cb4-225" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-226"><a href="#cb4-226" aria-hidden="true" tabindex="-1"></a><span class="co"># Flat-prior posterior SD (sample mean and sigma / sqrt(n))</span></span>
+<span id="cb4-227"><a href="#cb4-227" aria-hidden="true" tabindex="-1"></a>n_obs   <span class="ot">&lt;-</span> res<span class="sc">$</span>n_obs</span>
+<span id="cb4-228"><a href="#cb4-228" aria-hidden="true" tabindex="-1"></a>x_bar   <span class="ot">&lt;-</span> res<span class="sc">$</span>post_center</span>
+<span id="cb4-229"><a href="#cb4-229" aria-hidden="true" tabindex="-1"></a>post_sd <span class="ot">&lt;-</span> res<span class="sc">$</span>post_sd</span>
+<span id="cb4-230"><a href="#cb4-230" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-231"><a href="#cb4-231" aria-hidden="true" tabindex="-1"></a><span class="co"># True values used to generate the data (from synthetic_params() in R/generate_data.R)</span></span>
+<span id="cb4-232"><a href="#cb4-232" aria-hidden="true" tabindex="-1"></a>true_ann   <span class="ot">&lt;-</span> <span class="fu">setNames</span>(gen<span class="sc">$</span>ann_returns, gen<span class="sc">$</span>asset_names)</span>
+<span id="cb4-233"><a href="#cb4-233" aria-hidden="true" tabindex="-1"></a>true_tech  <span class="ot">&lt;-</span> true_ann[[<span class="st">"Tech_Growth"</span>]] <span class="sc">/</span> <span class="dv">252</span></span>
+<span id="cb4-234"><a href="#cb4-234" aria-hidden="true" tabindex="-1"></a>true_treas <span class="ot">&lt;-</span> true_ann[[<span class="st">"US_Treas_10Y"</span>]] <span class="sc">/</span> <span class="dv">252</span></span>
+<span id="cb4-235"><a href="#cb4-235" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-236"><a href="#cb4-236" aria-hidden="true" tabindex="-1"></a><span class="co"># --- Tech Growth ---</span></span>
+<span id="cb4-237"><a href="#cb4-237" aria-hidden="true" tabindex="-1"></a>tech_mean  <span class="ot">&lt;-</span> <span class="fu">mean</span>(post_burn_draws<span class="sc">$</span>Tech_Growth)          <span class="co"># MCMC posterior mean</span></span>
+<span id="cb4-238"><a href="#cb4-238" aria-hidden="true" tabindex="-1"></a>tech_ci    <span class="ot">&lt;-</span> <span class="fu">quantile</span>(post_burn_draws<span class="sc">$</span>Tech_Growth, <span class="fu">c</span>(<span class="fl">0.05</span>, <span class="fl">0.95</span>))</span>
+<span id="cb4-239"><a href="#cb4-239" aria-hidden="true" tabindex="-1"></a>tech_sd    <span class="ot">&lt;-</span> post_sd[<span class="st">"Tech_Growth"</span>]</span>
+<span id="cb4-240"><a href="#cb4-240" aria-hidden="true" tabindex="-1"></a>tech_z     <span class="ot">&lt;-</span> (x_bar[<span class="st">"Tech_Growth"</span>] <span class="sc">-</span> true_tech) <span class="sc">/</span> tech_sd</span>
+<span id="cb4-241"><a href="#cb4-241" aria-hidden="true" tabindex="-1"></a>tech_ann   <span class="ot">&lt;-</span> x_bar[<span class="st">"Tech_Growth"</span>] <span class="sc">*</span> <span class="dv">252</span>                 <span class="co"># annualized sample drift</span></span>
+<span id="cb4-242"><a href="#cb4-242" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-243"><a href="#cb4-243" aria-hidden="true" tabindex="-1"></a><span class="co"># --- US Treasuries ---</span></span>
+<span id="cb4-244"><a href="#cb4-244" aria-hidden="true" tabindex="-1"></a>treas_mean <span class="ot">&lt;-</span> <span class="fu">mean</span>(post_burn_draws<span class="sc">$</span>US_Treas_10Y)</span>
+<span id="cb4-245"><a href="#cb4-245" aria-hidden="true" tabindex="-1"></a>treas_ci   <span class="ot">&lt;-</span> <span class="fu">quantile</span>(post_burn_draws<span class="sc">$</span>US_Treas_10Y, <span class="fu">c</span>(<span class="fl">0.05</span>, <span class="fl">0.95</span>))</span>
+<span id="cb4-246"><a href="#cb4-246" aria-hidden="true" tabindex="-1"></a>treas_sd   <span class="ot">&lt;-</span> post_sd[<span class="st">"US_Treas_10Y"</span>]</span>
+<span id="cb4-247"><a href="#cb4-247" aria-hidden="true" tabindex="-1"></a>treas_z    <span class="ot">&lt;-</span> (x_bar[<span class="st">"US_Treas_10Y"</span>] <span class="sc">-</span> true_treas) <span class="sc">/</span> treas_sd</span>
+<span id="cb4-248"><a href="#cb4-248" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-249"><a href="#cb4-249" aria-hidden="true" tabindex="-1"></a><span class="co"># Days of data needed to shrink Tech's posterior SD to the target below</span></span>
+<span id="cb4-250"><a href="#cb4-250" aria-hidden="true" tabindex="-1"></a>target_sd   <span class="ot">&lt;-</span> <span class="fl">0.0001</span></span>
+<span id="cb4-251"><a href="#cb4-251" aria-hidden="true" tabindex="-1"></a>days_needed <span class="ot">&lt;-</span> <span class="fu">ceiling</span>((<span class="fu">sqrt</span>(<span class="fu">diag</span>(model_fixture<span class="sc">$</span>cov_emp))[<span class="st">"Tech_Growth"</span>] <span class="sc">/</span> target_sd)<span class="sc">^</span><span class="dv">2</span>)</span>
+<span id="cb4-252"><a href="#cb4-252" aria-hidden="true" tabindex="-1"></a>tech_sd_to_mean <span class="ot">&lt;-</span> tech_sd <span class="sc">/</span> true_tech</span>
+<span id="cb4-253"><a href="#cb4-253" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb4-254"><a href="#cb4-254" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-255"><a href="#cb4-255" aria-hidden="true" tabindex="-1"></a>**Understanding the Marginal Density Plots**</span>
+<span id="cb4-256"><a href="#cb4-256" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-257"><a href="#cb4-257" aria-hidden="true" tabindex="-1"></a>**Tech Growth:** The posterior centers on the sample mean, </span>
+<span id="cb4-258"><a href="#cb4-258" aria-hidden="true" tabindex="-1"></a>approximately <span class="in">`r sprintf("%.2f%%", tech_mean*100)`</span> daily, with a posterior standard </span>
+<span id="cb4-259"><a href="#cb4-259" aria-hidden="true" tabindex="-1"></a>deviation of about <span class="in">`r sprintf("%.2f%%", tech_sd*100)`</span>. The 90% credible interval runs </span>
+<span id="cb4-260"><a href="#cb4-260" aria-hidden="true" tabindex="-1"></a>from <span class="in">`r pct(tech_ci[1])`</span> to <span class="in">`r pct(tech_ci[2])`</span>. The true value used </span>
+<span id="cb4-261"><a href="#cb4-261" aria-hidden="true" tabindex="-1"></a>to generate the data, <span class="in">`r pct(true_tech, 3)`</span> daily (<span class="in">`r sprintf("%+.1f%%", true_ann[["Tech_Growth"]] * 100)`</span> annualized), </span>
+<span id="cb4-262"><a href="#cb4-262" aria-hidden="true" tabindex="-1"></a>lies about <span class="in">`r sprintf("%.1f", tech_z)`</span> posterior standard deviations </span>
+<span id="cb4-263"><a href="#cb4-263" aria-hidden="true" tabindex="-1"></a>below the center.</span>
+<span id="cb4-264"><a href="#cb4-264" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-265"><a href="#cb4-265" aria-hidden="true" tabindex="-1"></a>This is not a sampler error. By chance, this <span class="in">`r n_obs`</span>-day sample </span>
+<span id="cb4-266"><a href="#cb4-266" aria-hidden="true" tabindex="-1"></a>shows a Tech Growth drift of roughly <span class="in">`r sprintf("%.0f%%", tech_ann * 100)`</span> </span>
+<span id="cb4-267"><a href="#cb4-267" aria-hidden="true" tabindex="-1"></a>annualized. The posterior correctly reports what the data support; </span>
+<span id="cb4-268"><a href="#cb4-268" aria-hidden="true" tabindex="-1"></a>the data simply don't support the true value.</span>
+<span id="cb4-269"><a href="#cb4-269" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-270"><a href="#cb4-270" aria-hidden="true" tabindex="-1"></a>**US Treasuries (10Y):** The posterior centers near <span class="in">`r sprintf("%.2f%%", treas_mean*100)`</span></span>
+<span id="cb4-271"><a href="#cb4-271" aria-hidden="true" tabindex="-1"></a>daily, with a standard deviation of about <span class="in">`r sprintf("%.2f%%", treas_sd*100)`</span> and a 90% </span>
+<span id="cb4-272"><a href="#cb4-272" aria-hidden="true" tabindex="-1"></a>credible interval of <span class="in">`r pct(treas_ci[1])`</span> to <span class="in">`r pct(treas_ci[2])`</span>. </span>
+<span id="cb4-273"><a href="#cb4-273" aria-hidden="true" tabindex="-1"></a>The true value (<span class="in">`r pct(true_treas, 3)`</span> daily) lies about </span>
+<span id="cb4-274"><a href="#cb4-274" aria-hidden="true" tabindex="-1"></a><span class="in">`r sprintf("%.1f", abs(treas_z))`</span> standard deviations from the center.</span>
+<span id="cb4-275"><a href="#cb4-275" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-276"><a href="#cb4-276" aria-hidden="true" tabindex="-1"></a>Narrowing Tech Growth's uncertainty to <span class="in">`r pct2(target_sd)`</span> daily would take about </span>
+<span id="cb4-277"><a href="#cb4-277" aria-hidden="true" tabindex="-1"></a><span class="in">`r format(days_needed, big.mark = ",")`</span> trading days of data.</span>
+<span id="cb4-278"><a href="#cb4-278" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-279"><a href="#cb4-279" aria-hidden="true" tabindex="-1"></a>::: {.callout-important icon=false}</span>
+<span id="cb4-280"><a href="#cb4-280" aria-hidden="true" tabindex="-1"></a><span class="fu">## Key Takeaway: Parameter Recovery Is a Data Problem, Not a Sampler Problem</span></span>
+<span id="cb4-281"><a href="#cb4-281" aria-hidden="true" tabindex="-1"></a>MCMC recovers the **posterior**, not the **truth**. With <span class="in">`r n_obs`</span> daily observations, mean returns are poorly identified: Tech Growth's posterior standard deviation (≈<span class="in">`r pct2(tech_sd)`</span> daily) is <span class="in">`r sprintf("%.1f", tech_sd_to_mean)`</span> times its true mean. Narrowing that uncertainty to about <span class="in">`r pct2(target_sd)`</span> daily would take roughly  <span class="in">`r format(days_needed, big.mark=",")`</span> trading days of data. For risk managers, a year of history can't reliably tell a high-drift asset from a low-drift one. That estimation uncertainty is exactly what the VaR and ES credible intervals are meant to capture.</span>
+<span id="cb4-282"><a href="#cb4-282" aria-hidden="true" tabindex="-1"></a>:::</span>
 </code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
 </div></div></div></div></div>
 </div> <!-- /content -->

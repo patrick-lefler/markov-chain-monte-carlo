@@ -16,11 +16,17 @@ library(reactable)
 library(scales)
 library(tidyverse)
 
+source("R/generate_data.R")
 source("R/metropolis_sampler.R")
 source("R/risk_functions.R")
 source("R/plots.R")
 source("R/diagnostics.R")
+source("R/analysis.R")
 source("R/repro_env.R")
+
+st <- analysis_settings()
+prior_exp <- round(-log10(eval(formals(build_risk_target)$inv_prior_var)))
+prior_txt <- sprintf("inv_prior_var = 1e-%d", prior_exp)
 ```
 
 Every number on this site is computed from one synthetic data file, `data/synthetic_returns.csv`, which `R/generate_data.R` generates from a fixed seed. Every Markov chain is run with an explicit seed. Nothing is downloaded during a render, so rendering the same commit with the same package versions gives the same results. This page explains how to rebuild the site, records the environment it was built in, and states where the results can mislead.
@@ -61,11 +67,12 @@ If your versions match these and the packages are in sync, rebuilding the projec
 | `R/metropolis_sampler.R` | Random-Walk Metropolis-Hastings sampler written in base R, with no MCMC packages | `run_metropolis()` |
 | `R/risk_functions.R` | Builds the joint log-posterior for the 10 mean returns from the data file, and turns posterior draws into Value at Risk and Expected Shortfall | `build_risk_target()`, `evaluate_portfolio_tail_risk()`, `generate_dimension_comparison()` |
 | `R/plots.R` | Shared ggplot2 theme and plotting functions | `theme_mcmc()`, plot helpers |
-| `R/diagnostics.R` | Convergence diagnostics used on the Audit & Diagnostics page | `compute_ess_robust()` (Geyer ESS), `compute_split_rhat()` |
+| `R/diagnostics.R` | Convergence diagnostics used by `R/analysis.R` | `compute_ess_robust()` (Geyer ESS), `compute_split_rhat()` |
+| `R/analysis.R` | Sets the 10-factor settings and seeds (`analysis_settings()`), then runs the four chains, the tail-risk estimates, the exact-posterior benchmark and the convergence diagnostics (`run_analysis()`). Takes about a second. | `res`, the list of results that the home, Portfolio Risk and Audit & Diagnostics pages quote |
 | `R/verify_sampler.R`, `R/verify_risk_functions.R`, `R/verify_diagnostics.R` | Sanity checks you run by hand (for example `Rscript R/verify_diagnostics.R`). They are not sourced by any page. | Console output |
 | `R/repro_env.R` | Builds the Environment table on this page | `repro_env_table()` |
 
-Each page sources the scripts it needs in a hidden first chunk.
+Each page sources the scripts it needs in a hidden first chunk. The home, Portfolio Risk and Audit & Diagnostics pages each call `run_analysis()`, so every number they quote comes from the same code, settings and seeds; nothing in their text is typed in by hand.
 
 ## Data {#data}
 
@@ -108,18 +115,19 @@ The project has no `params.yaml`. The settings that drive the results are set di
 | Setting | Value | Where it is set |
 |:---------------------------|:---------------------|:---------------------------------|
 | Data: days, assets, generator seed | 250 days, 10 assets, seed `20260924` | `R/generate_data.R` |
-| Prior on the mean vector | $\mathcal{N}(\mathbf{0}, 10^4\,\mathbf{I})$ (`inv_prior_var = 1e-4`) | `compute_log_posterior()` in `R/risk_functions.R` |
+| Prior on the mean vector | $\mathcal{N}(\mathbf{0}, 10^{`r prior_exp`}\,\mathbf{I})$ (`` `r prior_txt` ``) | `build_risk_target()` in `R/risk_functions.R` |
 | Covariance | Fixed at the sample covariance of the data | `build_risk_target()` in `R/risk_functions.R` |
-| 10-factor chains: iterations, proposal SD, burn-in | 3,000 iterations, `proposal_sd = 0.00032`, first 500 draws discarded | `02-risk-application.qmd`, `03-diagnostics.qmd` |
-| Portfolio and risk measure | Equal weights (10% each), 1-day horizon, 95% VaR and Expected Shortfall | `02-risk-application.qmd` |
+| 10-factor chains: iterations, proposal SD, burn-in, overdispersed starts | `r comma(st$n_iter)` iterations, `proposal_sd` = `r format(st$proposal_sd, scientific = FALSE)`, first `r st$burn_in` draws discarded, chains 2–4 started ±`r st$start_sd` posterior SDs from the center | `analysis_settings()` in `R/analysis.R` |
+| Portfolio and risk measure | Equal weights, 1-day horizon, `r sprintf("%.0f%%", st$alpha * 100)` VaR and Expected Shortfall | `analysis_settings()` and `run_analysis()` in `R/analysis.R` |
+| Convergence thresholds | split-$\hat{R}$ < `r st$rhat_threshold`, ESS ≥ `r st$ess_target` (Vehtari et al., 2021) | `analysis_settings()` in `R/analysis.R` |
 | 2D toy chains | Intuition & The Walk: 300 iterations, `proposal_sd = 0.45`. The Metropolis Engine: 2,000 iterations with `proposal_sd` of 0.03, 3.20 and 1.20 | `index.qmd`, `01-mechanics.qmd` |
 
 Every random stream is seeded explicitly. `run_metropolis()` calls `set.seed(seed)` before each chain, and the seeds are:
 
-- `42` for the 10-factor chain on the Portfolio Risk page, chain 1 on the Audit & Diagnostics page, and the 2D hero chain on the home page.
+- `` `r st$seed_main` `` for chain 1 of the 10-factor analysis (`R/analysis.R`), and `42` for the 2D hero chain on the home page (`index.qmd`).
 - `101` for the three step-size chains on The Metropolis Engine page.
-- `99`, `123` and `456` for chains 2–4 on the Audit & Diagnostics page.
-- `2026` (`set.seed(2026)` in `03-diagnostics.qmd`) for the random signs of the "mixed" starting point.
+- `` `r paste(st$seeds_extra, collapse = ", ")` `` for chains 2–4 of the 10-factor analysis.
+- `` `r st$seed_signs` `` (in `run_analysis()`) for the random signs of the "mixed" starting point.
 
 Because each chain resets the seed, results do not depend on the order in which pages are rendered.
 

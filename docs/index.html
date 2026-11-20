@@ -204,7 +204,10 @@ window.Quarto = {
   <li><a href="#introduction" id="toc-introduction" class="nav-link active" data-scroll-target="#introduction">Introduction</a></li>
   <li><a href="#plain-language-translation-how-it-works" id="toc-plain-language-translation-how-it-works" class="nav-link" data-scroll-target="#plain-language-translation-how-it-works">Plain-Language Translation: How It Works</a></li>
   <li><a href="#the-dimensional-scaling-challenge" id="toc-the-dimensional-scaling-challenge" class="nav-link" data-scroll-target="#the-dimensional-scaling-challenge">The Dimensional Scaling Challenge</a></li>
-  <li><a href="#the-random-walk-engine" id="toc-the-random-walk-engine" class="nav-link" data-scroll-target="#the-random-walk-engine">The Random Walk Engine</a></li>
+  <li><a href="#the-random-walk-engine" id="toc-the-random-walk-engine" class="nav-link" data-scroll-target="#the-random-walk-engine">The Random Walk Engine</a>
+  <ul class="collapse">
+  <li><a href="#traversal-mechanics" id="toc-traversal-mechanics" class="nav-link" data-scroll-target="#traversal-mechanics">Traversal Mechanics</a></li>
+  </ul></li>
   <li><a href="#project-structure-roadmap" id="toc-project-structure-roadmap" class="nav-link" data-scroll-target="#project-structure-roadmap">Project Structure &amp; Roadmap</a></li>
   </ul>
 </nav>
@@ -239,20 +242,19 @@ window.Quarto = {
     
   </div>
   
-<div>
-  <div class="abstract">
-    <div class="block-title">Abstract</div>
-    <p>Portfolio risk models must estimate many correlated parameters at once, and deterministic grid integration becomes impractical as the number of dimensions grows (<span class="math inline">\(K^D\)</span>). This project builds a Random-Walk Metropolis sampler from first principles in R, with no MCMC libraries, and applies it to the expected returns of a 10-factor portfolio spanning equity, credit, duration, and commodity exposures. The model is deliberately chosen to have an exact answer: with multivariate normal returns and covariance fixed at its sample estimate, the posterior is <span class="math inline">\(\boldsymbol{\mu} \mid \mathbf{R}, \mathbf{\Sigma} \sim \mathcal{N}(\bar{\mathbf{x}}, \tfrac{1}{n}\mathbf{\Sigma})\)</span>. This lets every MCMC output be checked against closed-form truth.</p>
-    <p>The results show how a sampler can look healthy and still understate risk. At a 28.9% acceptance rate, well within conventional targets, the chain reproduces the exact posterior means of Value at Risk (1.05%) and Expected Shortfall (1.33%). The diagnostics tell a different story. All ten factors are at or above the split-<span class="math inline">\(\hat{R}\)</span> convergence threshold of 1.01 across four chains (maximum 1.057). Pooled across four chains (10,000 draws), bulk Effective Sample Size is only 65–316, and tail ESS for Tech Growth is 132, well below the recommended 400. Most important for risk reporting, the MCMC credible interval for VaR is about 17% narrower than the exact interval, so the sampler understates parameter uncertainty.</p>
-    <p>The cause is a single isotropic proposal step applied to factors with very different scales and strong correlations. The findings show why acceptance rates alone are not sufficient evidence of convergence, and why production risk engines need covariance-preconditioned or gradient-based samplers, validated with multi-chain diagnostics and, where possible, exact benchmarks.</p>
-  </div>
-</div>
 
 
 </header>
 
 
 <hr>
+<section id="introduction" class="level2">
+<h2 class="anchored" data-anchor-id="introduction">Introduction</h2>
+<p>Markov Chain Monte Carlo (MCMC) is a computational class of algorithms designed to sample from complex, high-dimensional probability distributions when analytical integration is intractable. In portfolio risk management, evaluating joint risk across multiple assets requires characterizing dependent parameters simultaneously—including factor means, volatilities, and cross-asset correlations. For non-standard priors or complex likelihoods, deterministic numerical grid integration scales exponentially with dimension (<span class="math inline">\(K^D\)</span>), quickly exceeding practical computational limits.</p>
+<p>MCMC bypasses deterministic grid mapping by replacing brute-force evaluation with an informed random walk. Guided by transition rules such as the Metropolis-Hastings criterion, the sampler proposes local moves, accepting higher-density coordinates and probabilistically accepting lower-density proposals. Over extended sampling runs, the chain visits parameter states in proportion to their underlying posterior density, mapping the target space without evaluating intractable normalizing constants.</p>
+<p>This project builds a Random-Walk Metropolis sampler from first principles in R, with no MCMC libraries, and applies it to the expected returns of a 10-factor portfolio spanning equity, credit, duration, and commodity exposures. The focus is on isolating parameter estimation uncertainty. The model is deliberately chosen to have an exact answer: with multivariate normal returns and covariance fixed at its sample estimate, the posterior is <span class="math inline">\(\boldsymbol{\mu} \mid \mathbf{R}, \mathbf{\Sigma} \sim \mathcal{N}(\bar{\mathbf{x}}, \frac{1}{n}\mathbf{\Sigma})\)</span>. This lets every MCMC output be checked against closed-form truth, providing an auditable environment to examine convergence, proposal efficiency, and the propagation of parameter uncertainty into Value at Risk (VaR) and Expected Shortfall (ES).</p>
+<p>The results show how a sampler can look healthy and still understate risk. At a 28.9% acceptance rate, well within conventional targets, the chain reproduces the exact posterior means of VaR (1.05%) and ES (1.33%). The diagnostics tell a different story. All ten factors are at or above the split-<span class="math inline">\(\hat{R}\)</span> convergence threshold of 1.01 across four chains (maximum 1.057). Pooled across four chains (10,000 draws), bulk Effective Sample Size (ESS) is only 65–316, and tail ESS for Tech Growth is 132, well below the recommended 400. Most important for risk reporting, the MCMC credible interval for VaR is about 17% narrower than the exact interval, so the sampler understates parameter uncertainty.</p>
+<p>The cause is a single isotropic proposal step applied to factors with very different scales and strong correlations. The findings show why acceptance rates alone are not sufficient evidence of convergence, and why production risk engines need covariance-preconditioned or gradient-based samplers, validated with multi-chain diagnostics and, where possible, exact benchmarks.</p>
 <div class="callout callout-style-default callout-note no-icon callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -277,20 +279,14 @@ window.Quarto = {
 </div>
 </div>
 <hr>
-<section id="introduction" class="level3">
-<h3 class="anchored" data-anchor-id="introduction">Introduction</h3>
-<p>Markov Chain Monte Carlo (MCMC) is a computational class of algorithms designed to sample from complex, high-dimensional probability distributions when analytical integration is intractable. In portfolio risk management, evaluating joint risk across multiple assets requires characterizing dependent parameters simultaneously—including factor means, volatilities, and cross-asset correlations. For non-standard priors or complex likelihoods, deterministic numerical grid integration scales exponentially with dimension (<span class="math inline">\(K^D\)</span>), quickly exceeding practical computational limits.</p>
-<p>MCMC bypasses deterministic grid mapping by replacing brute-force evaluation with an informed random walk. Guided by transition rules such as the Metropolis-Hastings criterion, the sampler proposes local moves, accepting higher-density coordinates and probabilistically accepting lower-density proposals. Over extended sampling runs, the chain visits parameter states in proportion to their underlying posterior density, mapping the target space without evaluating intractable normalizing constants.</p>
-<p>In this demonstration, we focus on isolating parameter estimation uncertainty. Using a controlled multivariate Gaussian portfolio framework, we deliberately pair our pure-R Metropolis sampler against a model with an exact analytical solution: <span class="math inline">\(\boldsymbol{\mu} \mid \mathbf{R}, \mathbf{\Sigma} \sim \mathcal{N}(\bar{\mathbf{x}}, \frac{1}{n}\mathbf{\Sigma})\)</span> . By holding covariance fixed and evaluating expected returns against this closed-form baseline, we provide an auditable environment to examine convergence, proposal efficiency, and the propagation of parameter uncertainty into Value at Risk (VaR) and Expected Shortfall (ES).</p>
-<hr>
 </section>
-<section id="plain-language-translation-how-it-works" class="level3">
-<h3 class="anchored" data-anchor-id="plain-language-translation-how-it-works">Plain-Language Translation: How It Works</h3>
+<section id="plain-language-translation-how-it-works" class="level2">
+<h2 class="anchored" data-anchor-id="plain-language-translation-how-it-works">Plain-Language Translation: How It Works</h2>
 <p>Imagine being placed on a large, pitch-black terrain with only a small flashlight, tasked with mapping the highest peaks and ridges. You cannot view the entire landscape at once, and pacing every square foot on a rigid grid would take an impractical amount of time. Instead, you take incremental random steps. When a step leads uphill toward higher ground, you take it; when a step heads downhill, you occasionally take it anyway to avoid staying confined to a single minor hill. Because you spend most of your time traversing higher ridges and pass quickly through low valleys, your path naturally traces the contours of the landscape. In financial modeling, algorithms like Markov Chain Monte Carlo deploy this sequential exploration to estimate portfolio risk. Rather than evaluating billions of arbitrary grid points across multiple correlated factors, the sampler concentrates computational effort directly in regions of high probability.</p>
 <hr>
 </section>
-<section id="the-dimensional-scaling-challenge" class="level3">
-<h3 class="anchored" data-anchor-id="the-dimensional-scaling-challenge">The Dimensional Scaling Challenge</h3>
+<section id="the-dimensional-scaling-challenge" class="level2">
+<h2 class="anchored" data-anchor-id="the-dimensional-scaling-challenge">The Dimensional Scaling Challenge</h2>
 <p>When managing risk across multiple correlated factors—equity betas, credit spreads, duration, and commodities—quantifying joint parameter uncertainty is essential. In low dimensions, deterministic numerical quadratures or grid evaluations are trivial. However, as the parameter count (<span class="math inline">\(D\)</span>) increases, Cartesian grid evaluations scale exponentially (<span class="math inline">\(K^D\)</span>).</p>
 <div class="cell">
 <details class="code-fold">
@@ -827,8 +823,8 @@ window.Quarto = {
 <p><strong>Full Covariance Horizon (<span class="math inline">\(D = 20\)</span>):</strong> Modeling 20 factor means alongside full cross-asset covariances involves <span class="math inline">\(D + D(D+1)/2 = 230\)</span> distinct parameters. Evaluating such spaces on uniform deterministic grids is computationally intractable, making stochastic simulation essential for non-conjugate structures.</p>
 <hr>
 </section>
-<section id="the-random-walk-engine" class="level3">
-<h3 class="anchored" data-anchor-id="the-random-walk-engine">The Random Walk Engine</h3>
+<section id="the-random-walk-engine" class="level2">
+<h2 class="anchored" data-anchor-id="the-random-walk-engine">The Random Walk Engine</h2>
 <p>Markov Chain Monte Carlo navigates probability distributions via sequential, localized transitions:</p>
 <ol type="1">
 <li><strong>Propose a Move:</strong> The chain samples a candidate coordinate <span class="math inline">\(\theta^*\)</span> from a proposal distribution centered on the current state <span class="math inline">\(\theta^{(t)}\)</span>.</li>
@@ -865,8 +861,8 @@ window.Quarto = {
 </div>
 </div>
 </div>
-<section id="traversal-mechanics" class="level4">
-<h4 class="anchored" data-anchor-id="traversal-mechanics">Traversal Mechanics</h4>
+<section id="traversal-mechanics" class="level3">
+<h3 class="anchored" data-anchor-id="traversal-mechanics">Traversal Mechanics</h3>
 <ul>
 <li><strong>Stationary Convergence:</strong> Initializing from an arbitrary coordinate in the outer tail, the chain transitions toward the high-density contour core.</li>
 <li><strong>Proportional Dwell Time:</strong> Once stationary, the chain continues moving, spending time across regions in proportion to target posterior density.</li>
@@ -874,8 +870,8 @@ window.Quarto = {
 <hr>
 </section>
 </section>
-<section id="project-structure-roadmap" class="level3">
-<h3 class="anchored" data-anchor-id="project-structure-roadmap">Project Structure &amp; Roadmap</h3>
+<section id="project-structure-roadmap" class="level2">
+<h2 class="anchored" data-anchor-id="project-structure-roadmap">Project Structure &amp; Roadmap</h2>
 <p>This project demonstrates the implementation, diagnostic auditing, and tail-risk application of first-principles MCMC:</p>
 <ul>
 <li><a href="./01-mechanics.html">The Metropolis Engine</a>: The R implementation from scratch (without MCMC libraries), detailing acceptance ratios and proposal step-size calibration.</li>
@@ -1367,192 +1363,208 @@ window.Quarto = {
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="an">subtitle:</span><span class="co"> "Benchmarking First-Principles Parameter Exploration in Correlated Factor Spaces"</span></span>
 <span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="an">author:</span><span class="co"> "Patrick Lefler"</span></span>
 <span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="an">date:</span><span class="co"> "September 24, 2026"</span></span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="an">abstract:</span><span class="co"> |</span></span>
-<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="co">  Portfolio risk models must estimate many correlated parameters at once, and deterministic grid integration becomes impractical as the number of dimensions grows ($K^D$). This project builds a Random-Walk Metropolis sampler from first principles in R, with no MCMC libraries, and applies it to the expected returns of a 10-factor portfolio spanning equity, credit, duration, and commodity exposures. The model is deliberately chosen to have an exact answer: with multivariate normal returns and covariance fixed at its sample estimate, the posterior is $\boldsymbol{\mu} \mid \mathbf{R}, \mathbf{\Sigma} \sim \mathcal{N}(\bar{\mathbf{x}}, \tfrac{1}{n}\mathbf{\Sigma})$. This lets every MCMC output be checked against closed-form truth.</span></span>
-<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="co">  The results show how a sampler can look healthy and still understate risk. At a 28.9% acceptance rate, well within conventional targets, the chain reproduces the exact posterior means of Value at Risk (1.05%) and Expected Shortfall (1.33%). The diagnostics tell a different story. All ten factors are at or above the split-$\hat{R}$ convergence threshold of 1.01 across four chains (maximum 1.057). Pooled across four chains (10,000 draws), bulk Effective Sample Size is only 65–316, and tail ESS for Tech Growth is 132, well below the recommended 400. Most important for risk reporting, the MCMC credible interval for VaR is about 17% narrower than the exact interval, so the sampler understates parameter uncertainty.</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="in">```{r setup, include=FALSE}</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span>opts_chunk<span class="sc">$</span><span class="fu">set</span>(<span class="at">echo =</span> <span class="cn">TRUE</span>, <span class="at">message =</span> <span class="cn">FALSE</span>, <span class="at">warning =</span> <span class="cn">FALSE</span>)</span>
 <span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="co">  The cause is a single isotropic proposal step applied to factors with very different scales and strong correlations. The findings show why acceptance rates alone are not sufficient evidence of convergence, and why production risk engines need covariance-preconditioned or gradient-based samplers, validated with multi-chain diagnostics and, where possible, exact benchmarks.</span></span>
-<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a><span class="in">```{r setup, include=FALSE}</span></span>
-<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span>opts_chunk<span class="sc">$</span><span class="fu">set</span>(<span class="at">echo =</span> <span class="cn">TRUE</span>, <span class="at">message =</span> <span class="cn">FALSE</span>, <span class="at">warning =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
-<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(gt)</span>
-<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(reactable)</span>
-<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(scales)</span>
-<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"R/metropolis_sampler.R"</span>)</span>
-<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"R/risk_functions.R"</span>)</span>
-<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"R/plots.R"</span>)</span>
-<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a><span class="co"># Run toy 2D chain for hero visual</span></span>
-<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a>target_bivariate <span class="ot">&lt;-</span> <span class="cf">function</span>(theta) {</span>
-<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a>  mu <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fl">0.5</span>, <span class="fl">0.5</span>)</span>
-<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a>  sigma <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">c</span>(<span class="fl">1.0</span>, <span class="fl">0.70</span>, <span class="fl">0.70</span>, <span class="fl">1.0</span>), <span class="at">nrow =</span> <span class="dv">2</span>)</span>
-<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span><span class="fl">0.5</span> <span class="sc">*</span> <span class="fu">t</span>(theta <span class="sc">-</span> mu) <span class="sc">%*%</span> <span class="fu">solve</span>(sigma) <span class="sc">%*%</span> (theta <span class="sc">-</span> mu)</span>
-<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a>hero_chain <span class="ot">&lt;-</span> <span class="fu">run_metropolis</span>(</span>
-<span id="cb3-35"><a href="#cb3-35" aria-hidden="true" tabindex="-1"></a>  <span class="at">target_log_posterior =</span> target_bivariate,</span>
-<span id="cb3-36"><a href="#cb3-36" aria-hidden="true" tabindex="-1"></a>  <span class="at">initial_theta =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="fl">3.2</span>, <span class="fl">3.0</span>),</span>
-<span id="cb3-37"><a href="#cb3-37" aria-hidden="true" tabindex="-1"></a>  <span class="at">iterations =</span> <span class="dv">300</span>,</span>
-<span id="cb3-38"><a href="#cb3-38" aria-hidden="true" tabindex="-1"></a>  <span class="at">proposal_sd =</span> <span class="fl">0.45</span>,</span>
-<span id="cb3-39"><a href="#cb3-39" aria-hidden="true" tabindex="-1"></a>  <span class="at">seed =</span> <span class="dv">42</span></span>
-<span id="cb3-40"><a href="#cb3-40" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb3-41"><a href="#cb3-41" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-42"><a href="#cb3-42" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb3-43"><a href="#cb3-43" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-44"><a href="#cb3-44" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb3-45"><a href="#cb3-45" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-46"><a href="#cb3-46" aria-hidden="true" tabindex="-1"></a>::: {.callout-note icon=false}</span>
-<span id="cb3-47"><a href="#cb3-47" aria-hidden="true" tabindex="-1"></a><span class="fu">## Scope &amp; Limitations</span></span>
-<span id="cb3-48"><a href="#cb3-48" aria-hidden="true" tabindex="-1"></a>This project is a methods demonstration and model-validation case study, not </span>
-<span id="cb3-49"><a href="#cb3-49" aria-hidden="true" tabindex="-1"></a>a production risk model. Its results should be read with these constraints in mind:</span>
-<span id="cb3-50"><a href="#cb3-50" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-51"><a href="#cb3-51" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Synthetic data.** All results use a simulated 250-day fixture drawn from a </span>
-<span id="cb3-52"><a href="#cb3-52" aria-hidden="true" tabindex="-1"></a>  known multivariate normal distribution. Real returns show regime shifts, </span>
-<span id="cb3-53"><a href="#cb3-53" aria-hidden="true" tabindex="-1"></a>  volatility clustering, and structural breaks that this dataset does not.</span>
-<span id="cb3-54"><a href="#cb3-54" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Covariance is fixed.** $\mathbf{\Sigma}$ is set to its sample estimate, so </span>
-<span id="cb3-55"><a href="#cb3-55" aria-hidden="true" tabindex="-1"></a>  only uncertainty in the mean vector is modeled. Covariance uncertainty, </span>
-<span id="cb3-56"><a href="#cb3-56" aria-hidden="true" tabindex="-1"></a>  usually the larger driver of VaR error, is excluded, and the reported </span>
-<span id="cb3-57"><a href="#cb3-57" aria-hidden="true" tabindex="-1"></a>  credible intervals are therefore lower bounds on total parameter risk.</span>
-<span id="cb3-58"><a href="#cb3-58" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Gaussian tails.** The normal likelihood cannot represent fat tails or </span>
-<span id="cb3-59"><a href="#cb3-59" aria-hidden="true" tabindex="-1"></a>  skew. VaR and ES here are parametric Gaussian measures and will understate </span>
-<span id="cb3-60"><a href="#cb3-60" aria-hidden="true" tabindex="-1"></a>  losses in stressed markets.</span>
-<span id="cb3-61"><a href="#cb3-61" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**The sampler has not converged.** All ten factors fail the </span>
-<span id="cb3-62"><a href="#cb3-62" aria-hidden="true" tabindex="-1"></a>  split-$\hat{R} &lt; 1.01$ test, bulk ESS is 65–316 across four chains, and the </span>
-<span id="cb3-63"><a href="#cb3-63" aria-hidden="true" tabindex="-1"></a>  VaR credible interval is about 17% too narrow. The chain's tail estimates </span>
-<span id="cb3-64"><a href="#cb3-64" aria-hidden="true" tabindex="-1"></a>  should not be used for decisions without a preconditioned or gradient-based </span>
-<span id="cb3-65"><a href="#cb3-65" aria-hidden="true" tabindex="-1"></a>  sampler.</span>
-<span id="cb3-66"><a href="#cb3-66" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Short run and burn-in.** The chains run 3,000 iterations with a 500-draw </span>
-<span id="cb3-67"><a href="#cb3-67" aria-hidden="true" tabindex="-1"></a>  burn-in, which the trace plots show is insufficient for overdispersed starts.</span>
-<span id="cb3-68"><a href="#cb3-68" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Deliberately simple setting.** The model is conjugate, so MCMC is not </span>
-<span id="cb3-69"><a href="#cb3-69" aria-hidden="true" tabindex="-1"></a>  actually needed here; it is used so that results can be checked against an </span>
-<span id="cb3-70"><a href="#cb3-70" aria-hidden="true" tabindex="-1"></a>  exact answer. Performance on non-conjugate models (for example, Student-t </span>
-<span id="cb3-71"><a href="#cb3-71" aria-hidden="true" tabindex="-1"></a>  likelihoods or joint mean–covariance estimation) is untested.</span>
-<span id="cb3-72"><a href="#cb3-72" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Narrow portfolio specification.** Results cover one equal-weighted </span>
-<span id="cb3-73"><a href="#cb3-73" aria-hidden="true" tabindex="-1"></a>  portfolio at a 1-day horizon and a 95% confidence level. Other weights, </span>
-<span id="cb3-74"><a href="#cb3-74" aria-hidden="true" tabindex="-1"></a>  horizons, or confidence levels are not assessed.</span>
-<span id="cb3-75"><a href="#cb3-75" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Illustrative scaling figures.** The grid-versus-MCMC timings in the </span>
-<span id="cb3-76"><a href="#cb3-76" aria-hidden="true" tabindex="-1"></a>  Dimensional Complexity table are illustrative estimates, not measured </span>
-<span id="cb3-77"><a href="#cb3-77" aria-hidden="true" tabindex="-1"></a>  benchmarks.</span>
-<span id="cb3-78"><a href="#cb3-78" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb3-79"><a href="#cb3-79" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-80"><a href="#cb3-80" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb3-81"><a href="#cb3-81" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-82"><a href="#cb3-82" aria-hidden="true" tabindex="-1"></a><span class="fu">### Introduction</span></span>
-<span id="cb3-83"><a href="#cb3-83" aria-hidden="true" tabindex="-1"></a>Markov Chain Monte Carlo (MCMC) is a computational class of algorithms designed to sample from complex, high-dimensional probability distributions when analytical integration is intractable. In portfolio risk management, evaluating joint risk across multiple assets requires characterizing dependent parameters simultaneously—including factor means, volatilities, and cross-asset correlations. For non-standard priors or complex likelihoods, deterministic numerical grid integration scales exponentially with dimension ($K^D$), quickly exceeding practical computational limits.</span>
-<span id="cb3-84"><a href="#cb3-84" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-85"><a href="#cb3-85" aria-hidden="true" tabindex="-1"></a>MCMC bypasses deterministic grid mapping by replacing brute-force evaluation with an informed random walk. Guided by transition rules such as the Metropolis-Hastings criterion, the sampler proposes local moves, accepting higher-density coordinates and probabilistically accepting lower-density proposals. Over extended sampling runs, the chain visits parameter states in proportion to their underlying posterior density, mapping the target space without evaluating intractable normalizing constants.</span>
-<span id="cb3-86"><a href="#cb3-86" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-87"><a href="#cb3-87" aria-hidden="true" tabindex="-1"></a>In this demonstration, we focus on isolating parameter estimation uncertainty. Using a controlled multivariate Gaussian portfolio framework, we deliberately pair our pure-R Metropolis sampler against a model with an exact analytical solution: $\boldsymbol{\mu} \mid \mathbf{R}, \mathbf{\Sigma} \sim \mathcal{N}(\bar{\mathbf{x}}, \frac{1}{n}\mathbf{\Sigma})$  . By holding covariance fixed and evaluating expected returns against this closed-form baseline, we provide an auditable environment to examine convergence, proposal efficiency, and the propagation of parameter uncertainty into Value at Risk (VaR) and Expected Shortfall (ES).</span>
-<span id="cb3-88"><a href="#cb3-88" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-89"><a href="#cb3-89" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb3-90"><a href="#cb3-90" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-91"><a href="#cb3-91" aria-hidden="true" tabindex="-1"></a><span class="fu">### Plain-Language Translation: How It Works</span></span>
-<span id="cb3-92"><a href="#cb3-92" aria-hidden="true" tabindex="-1"></a>Imagine being placed on a large, pitch-black terrain with only a small flashlight, tasked with mapping the highest peaks and ridges. You cannot view the entire landscape at once, and pacing every square foot on a rigid grid would take an impractical amount of time. Instead, you take incremental random steps. When a step leads uphill toward higher ground, you take it; when a step heads downhill, you occasionally take it anyway to avoid staying confined to a single minor hill.</span>
-<span id="cb3-93"><a href="#cb3-93" aria-hidden="true" tabindex="-1"></a>Because you spend most of your time traversing higher ridges and pass quickly through low valleys, your path naturally traces the contours of the landscape. In financial modeling, algorithms like Markov Chain Monte Carlo deploy this sequential exploration to estimate portfolio risk. Rather than evaluating billions of arbitrary grid points across multiple correlated factors, the sampler concentrates computational effort directly in regions of high probability.</span>
-<span id="cb3-94"><a href="#cb3-94" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-95"><a href="#cb3-95" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb3-96"><a href="#cb3-96" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-97"><a href="#cb3-97" aria-hidden="true" tabindex="-1"></a><span class="fu">### The Dimensional Scaling Challenge</span></span>
-<span id="cb3-98"><a href="#cb3-98" aria-hidden="true" tabindex="-1"></a>When managing risk across multiple correlated factors—equity betas, credit spreads, duration, and commodities—quantifying joint parameter uncertainty is essential.</span>
-<span id="cb3-99"><a href="#cb3-99" aria-hidden="true" tabindex="-1"></a>In low dimensions, deterministic numerical quadratures or grid evaluations are trivial. However, as the parameter count ($D$) increases, Cartesian grid evaluations scale exponentially ($K^D$).</span>
-<span id="cb3-100"><a href="#cb3-100" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-101"><a href="#cb3-101" aria-hidden="true" tabindex="-1"></a><span class="in">```{r grid-breakdown-table, echo = TRUE}</span></span>
-<span id="cb3-102"><a href="#cb3-102" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-103"><a href="#cb3-103" aria-hidden="true" tabindex="-1"></a><span class="fu">generate_dimension_comparison</span>() <span class="sc">%&gt;%</span></span>
-<span id="cb3-104"><a href="#cb3-104" aria-hidden="true" tabindex="-1"></a>  <span class="fu">gt</span>() <span class="sc">%&gt;%</span></span>
-<span id="cb3-105"><a href="#cb3-105" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_header</span>(</span>
-<span id="cb3-106"><a href="#cb3-106" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="fu">md</span>(<span class="st">"**Dimensional Complexity: Grid Search vs. Stochastic Sampling**"</span>),</span>
-<span id="cb3-107"><a href="#cb3-107" aria-hidden="true" tabindex="-1"></a>    <span class="at">subtitle =</span> <span class="st">"Scaling behavior of uniform grid evaluation vs. stochastic simulation"</span></span>
-<span id="cb3-108"><a href="#cb3-108" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
-<span id="cb3-109"><a href="#cb3-109" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cols_label</span>(</span>
-<span id="cb3-110"><a href="#cb3-110" aria-hidden="true" tabindex="-1"></a>    <span class="at">Dimensions =</span> <span class="st">"Factor Horizon"</span>,</span>
-<span id="cb3-111"><a href="#cb3-111" aria-hidden="true" tabindex="-1"></a>    <span class="at">Grid_Points_Per_Axis =</span> <span class="st">"Points / Axis"</span>,</span>
-<span id="cb3-112"><a href="#cb3-112" aria-hidden="true" tabindex="-1"></a>    <span class="at">Total_Grid_Evaluations =</span> <span class="fu">html</span>(<span class="st">"Grid Evaluations (K&lt;sup&gt;D&lt;/sup&gt;)"</span>),</span>
-<span id="cb3-113"><a href="#cb3-113" aria-hidden="true" tabindex="-1"></a>    <span class="at">Grid_Feasibility =</span> <span class="st">"Grid Feasibility"</span>,</span>
-<span id="cb3-114"><a href="#cb3-114" aria-hidden="true" tabindex="-1"></a>    <span class="at">MCMC_Iterations_Required =</span> <span class="st">"Target MCMC Draws"</span>,</span>
-<span id="cb3-115"><a href="#cb3-115" aria-hidden="true" tabindex="-1"></a>    <span class="at">MCMC_Solve_Time =</span> <span class="st">"Observed MCMC Time"</span></span>
-<span id="cb3-116"><a href="#cb3-116" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
-<span id="cb3-117"><a href="#cb3-117" aria-hidden="true" tabindex="-1"></a>  <span class="fu">text_transform</span>(</span>
-<span id="cb3-118"><a href="#cb3-118" aria-hidden="true" tabindex="-1"></a>  <span class="at">locations =</span> <span class="fu">cells_body</span>(<span class="at">columns =</span> Total_Grid_Evaluations),</span>
-<span id="cb3-119"><a href="#cb3-119" aria-hidden="true" tabindex="-1"></a>  <span class="at">fn =</span> <span class="cf">function</span>(x) <span class="fu">gsub</span>(<span class="st">"10</span><span class="sc">\\</span><span class="st">^(</span><span class="sc">\\</span><span class="st">d+)"</span>, <span class="st">"10&lt;sup&gt;</span><span class="sc">\\</span><span class="st">1&lt;/sup&gt;"</span>, x)</span>
-<span id="cb3-120"><a href="#cb3-120" aria-hidden="true" tabindex="-1"></a>) <span class="sc">%&gt;%</span></span>
-<span id="cb3-121"><a href="#cb3-121" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_style</span>(</span>
-<span id="cb3-122"><a href="#cb3-122" aria-hidden="true" tabindex="-1"></a>    <span class="at">style =</span> <span class="fu">cell_text</span>(<span class="at">weight =</span> <span class="st">"bold"</span>, <span class="at">color =</span> <span class="st">"#c0392b"</span>),</span>
-<span id="cb3-123"><a href="#cb3-123" aria-hidden="true" tabindex="-1"></a>    <span class="at">locations =</span> <span class="fu">cells_body</span>(<span class="at">columns =</span> Total_Grid_Evaluations, <span class="at">rows =</span> <span class="dv">2</span><span class="sc">:</span><span class="dv">3</span>)</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(gt)</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(reactable)</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(scales)</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"R/metropolis_sampler.R"</span>)</span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"R/risk_functions.R"</span>)</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"R/diagnostics.R"</span>)</span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"R/plots.R"</span>)</span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"R/analysis.R"</span>)</span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a><span class="co"># Shared 10-factor analysis: numbers quoted in the Introduction and Scope &amp; Limitations</span></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>res <span class="ot">&lt;-</span> <span class="fu">run_analysis</span>()</span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>st  <span class="ot">&lt;-</span> res<span class="sc">$</span>settings</span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>pct <span class="ot">&lt;-</span> <span class="cf">function</span>(x, <span class="at">digits =</span> <span class="dv">2</span>) <span class="fu">sprintf</span>(<span class="fu">paste0</span>(<span class="st">"%."</span>, digits, <span class="st">"f%%"</span>), x <span class="sc">*</span> <span class="dv">100</span>)</span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>num_word <span class="ot">&lt;-</span> <span class="cf">function</span>(n) xfun<span class="sc">::</span><span class="fu">numbers_to_words</span>(n)</span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a>txt_acc      <span class="ot">&lt;-</span> <span class="fu">pct</span>(res<span class="sc">$</span>acceptance_rate, <span class="dv">1</span>)</span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a>txt_var      <span class="ot">&lt;-</span> <span class="fu">pct</span>(res<span class="sc">$</span>exact<span class="sc">$</span>var)</span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a>txt_es       <span class="ot">&lt;-</span> <span class="fu">pct</span>(res<span class="sc">$</span>exact<span class="sc">$</span>es)</span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a>means_agree  <span class="ot">&lt;-</span> <span class="fu">round</span>(res<span class="sc">$</span>risk_table<span class="sc">$</span>mean_estimate[<span class="dv">1</span>], <span class="dv">4</span>) <span class="sc">==</span> <span class="fu">round</span>(res<span class="sc">$</span>exact<span class="sc">$</span>var, <span class="dv">4</span>) <span class="sc">&amp;&amp;</span></span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a>                <span class="fu">round</span>(res<span class="sc">$</span>risk_table<span class="sc">$</span>mean_estimate[<span class="dv">2</span>], <span class="dv">4</span>) <span class="sc">==</span> <span class="fu">round</span>(res<span class="sc">$</span>exact<span class="sc">$</span>es, <span class="dv">4</span>)</span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a>txt_fail     <span class="ot">&lt;-</span> <span class="cf">if</span> (res<span class="sc">$</span>n_rhat_fail <span class="sc">==</span> res<span class="sc">$</span>d) <span class="fu">paste</span>(<span class="st">"All"</span>, <span class="fu">num_word</span>(res<span class="sc">$</span>d), <span class="st">"factors"</span>) <span class="cf">else</span></span>
+<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a>                  <span class="fu">paste</span>(stringr<span class="sc">::</span><span class="fu">str_to_sentence</span>(<span class="fu">num_word</span>(res<span class="sc">$</span>n_rhat_fail)), <span class="st">"of"</span>, <span class="fu">num_word</span>(res<span class="sc">$</span>d), <span class="st">"factors"</span>)</span>
+<span id="cb3-35"><a href="#cb3-35" aria-hidden="true" tabindex="-1"></a>txt_rhat_max <span class="ot">&lt;-</span> <span class="fu">sprintf</span>(<span class="st">"%.3f"</span>, <span class="fu">max</span>(res<span class="sc">$</span>rhat))</span>
+<span id="cb3-36"><a href="#cb3-36" aria-hidden="true" tabindex="-1"></a>txt_bulk     <span class="ot">&lt;-</span> <span class="fu">sprintf</span>(<span class="st">"%d–%d"</span>, <span class="fu">min</span>(res<span class="sc">$</span>ess_bulk), <span class="fu">max</span>(res<span class="sc">$</span>ess_bulk))</span>
+<span id="cb3-37"><a href="#cb3-37" aria-hidden="true" tabindex="-1"></a>txt_tail_tech <span class="ot">&lt;-</span> res<span class="sc">$</span>ess_tail[[<span class="st">"Tech_Growth"</span>]]</span>
+<span id="cb3-38"><a href="#cb3-38" aria-hidden="true" tabindex="-1"></a>txt_narrow   <span class="ot">&lt;-</span> <span class="fu">sprintf</span>(<span class="st">"%.0f%%"</span>, (<span class="dv">1</span> <span class="sc">-</span> res<span class="sc">$</span>width_ratio) <span class="sc">*</span> <span class="dv">100</span>)</span>
+<span id="cb3-39"><a href="#cb3-39" aria-hidden="true" tabindex="-1"></a>txt_draws    <span class="ot">&lt;-</span> scales<span class="sc">::</span><span class="fu">comma</span>(res<span class="sc">$</span>n_keep <span class="sc">*</span> res<span class="sc">$</span>n_chains)</span>
+<span id="cb3-40"><a href="#cb3-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-41"><a href="#cb3-41" aria-hidden="true" tabindex="-1"></a><span class="co"># Run toy 2D chain for hero visual</span></span>
+<span id="cb3-42"><a href="#cb3-42" aria-hidden="true" tabindex="-1"></a>target_bivariate <span class="ot">&lt;-</span> <span class="cf">function</span>(theta) {</span>
+<span id="cb3-43"><a href="#cb3-43" aria-hidden="true" tabindex="-1"></a>  mu <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fl">0.5</span>, <span class="fl">0.5</span>)</span>
+<span id="cb3-44"><a href="#cb3-44" aria-hidden="true" tabindex="-1"></a>  sigma <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">c</span>(<span class="fl">1.0</span>, <span class="fl">0.70</span>, <span class="fl">0.70</span>, <span class="fl">1.0</span>), <span class="at">nrow =</span> <span class="dv">2</span>)</span>
+<span id="cb3-45"><a href="#cb3-45" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span><span class="fl">0.5</span> <span class="sc">*</span> <span class="fu">t</span>(theta <span class="sc">-</span> mu) <span class="sc">%*%</span> <span class="fu">solve</span>(sigma) <span class="sc">%*%</span> (theta <span class="sc">-</span> mu)</span>
+<span id="cb3-46"><a href="#cb3-46" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb3-47"><a href="#cb3-47" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-48"><a href="#cb3-48" aria-hidden="true" tabindex="-1"></a>hero_chain <span class="ot">&lt;-</span> <span class="fu">run_metropolis</span>(</span>
+<span id="cb3-49"><a href="#cb3-49" aria-hidden="true" tabindex="-1"></a>  <span class="at">target_log_posterior =</span> target_bivariate,</span>
+<span id="cb3-50"><a href="#cb3-50" aria-hidden="true" tabindex="-1"></a>  <span class="at">initial_theta =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="fl">3.2</span>, <span class="fl">3.0</span>),</span>
+<span id="cb3-51"><a href="#cb3-51" aria-hidden="true" tabindex="-1"></a>  <span class="at">iterations =</span> <span class="dv">300</span>,</span>
+<span id="cb3-52"><a href="#cb3-52" aria-hidden="true" tabindex="-1"></a>  <span class="at">proposal_sd =</span> <span class="fl">0.45</span>,</span>
+<span id="cb3-53"><a href="#cb3-53" aria-hidden="true" tabindex="-1"></a>  <span class="at">seed =</span> <span class="dv">42</span></span>
+<span id="cb3-54"><a href="#cb3-54" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb3-55"><a href="#cb3-55" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-56"><a href="#cb3-56" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb3-57"><a href="#cb3-57" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-58"><a href="#cb3-58" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb3-59"><a href="#cb3-59" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-60"><a href="#cb3-60" aria-hidden="true" tabindex="-1"></a><span class="fu">## Introduction</span></span>
+<span id="cb3-61"><a href="#cb3-61" aria-hidden="true" tabindex="-1"></a>Markov Chain Monte Carlo (MCMC) is a computational class of algorithms designed to sample from complex, high-dimensional probability distributions when analytical integration is intractable. In portfolio risk management, evaluating joint risk across multiple assets requires characterizing dependent parameters simultaneously—including factor means, volatilities, and cross-asset correlations. For non-standard priors or complex likelihoods, deterministic numerical grid integration scales exponentially with dimension ($K^D$), quickly exceeding practical computational limits.</span>
+<span id="cb3-62"><a href="#cb3-62" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-63"><a href="#cb3-63" aria-hidden="true" tabindex="-1"></a>MCMC bypasses deterministic grid mapping by replacing brute-force evaluation with an informed random walk. Guided by transition rules such as the Metropolis-Hastings criterion, the sampler proposes local moves, accepting higher-density coordinates and probabilistically accepting lower-density proposals. Over extended sampling runs, the chain visits parameter states in proportion to their underlying posterior density, mapping the target space without evaluating intractable normalizing constants.</span>
+<span id="cb3-64"><a href="#cb3-64" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-65"><a href="#cb3-65" aria-hidden="true" tabindex="-1"></a>This project builds a Random-Walk Metropolis sampler from first principles in R, with no MCMC libraries, and applies it to the expected returns of a <span class="in">`r res$d`</span>-factor portfolio spanning equity, credit, duration, and commodity exposures. The focus is on isolating parameter estimation uncertainty. The model is deliberately chosen to have an exact answer: with multivariate normal returns and covariance fixed at its sample estimate, the posterior is $\boldsymbol{\mu} \mid \mathbf{R}, \mathbf{\Sigma} \sim \mathcal{N}(\bar{\mathbf{x}}, \frac{1}{n}\mathbf{\Sigma})$. This lets every MCMC output be checked against closed-form truth, providing an auditable environment to examine convergence, proposal efficiency, and the propagation of parameter uncertainty into Value at Risk (VaR) and Expected Shortfall (ES).</span>
+<span id="cb3-66"><a href="#cb3-66" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-67"><a href="#cb3-67" aria-hidden="true" tabindex="-1"></a>The results show how a sampler can look healthy and still understate risk. At a <span class="in">`r txt_acc`</span> acceptance rate, well within conventional targets, the chain <span class="in">`r if (means_agree) "reproduces" else "comes close to"`</span> the exact posterior means of VaR (<span class="in">`r txt_var`</span>) and ES (<span class="in">`r txt_es`</span>). The diagnostics tell a different story. <span class="in">`r txt_fail`</span> are at or above the split-$\hat{R}$ convergence threshold of <span class="in">`r st$rhat_threshold`</span> across <span class="in">`r num_word(res$n_chains)`</span> chains (maximum <span class="in">`r txt_rhat_max`</span>). Pooled across <span class="in">`r num_word(res$n_chains)`</span> chains (<span class="in">`r txt_draws`</span> draws), bulk Effective Sample Size (ESS) is only <span class="in">`r txt_bulk`</span>, and tail ESS for Tech Growth is <span class="in">`r txt_tail_tech`</span>, well below the recommended <span class="in">`r st$ess_target`</span>. Most important for risk reporting, the MCMC credible interval for VaR is about <span class="in">`r txt_narrow`</span> narrower than the exact interval, so the sampler understates parameter uncertainty.</span>
+<span id="cb3-68"><a href="#cb3-68" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-69"><a href="#cb3-69" aria-hidden="true" tabindex="-1"></a>The cause is a single isotropic proposal step applied to factors with very different scales and strong correlations. The findings show why acceptance rates alone are not sufficient evidence of convergence, and why production risk engines need covariance-preconditioned or gradient-based samplers, validated with multi-chain diagnostics and, where possible, exact benchmarks.</span>
+<span id="cb3-70"><a href="#cb3-70" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-71"><a href="#cb3-71" aria-hidden="true" tabindex="-1"></a>::: {.callout-note icon=false}</span>
+<span id="cb3-72"><a href="#cb3-72" aria-hidden="true" tabindex="-1"></a><span class="fu">## Scope &amp; Limitations</span></span>
+<span id="cb3-73"><a href="#cb3-73" aria-hidden="true" tabindex="-1"></a>This project is a methods demonstration and model-validation case study, not </span>
+<span id="cb3-74"><a href="#cb3-74" aria-hidden="true" tabindex="-1"></a>a production risk model. Its results should be read with these constraints in mind:</span>
+<span id="cb3-75"><a href="#cb3-75" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-76"><a href="#cb3-76" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Synthetic data.** All results use a simulated <span class="in">`r res$n_obs`</span>-day fixture drawn from a </span>
+<span id="cb3-77"><a href="#cb3-77" aria-hidden="true" tabindex="-1"></a>  known multivariate normal distribution. Real returns show regime shifts, </span>
+<span id="cb3-78"><a href="#cb3-78" aria-hidden="true" tabindex="-1"></a>  volatility clustering, and structural breaks that this dataset does not.</span>
+<span id="cb3-79"><a href="#cb3-79" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Covariance is fixed.** $\mathbf{\Sigma}$ is set to its sample estimate, so </span>
+<span id="cb3-80"><a href="#cb3-80" aria-hidden="true" tabindex="-1"></a>  only uncertainty in the mean vector is modeled. Covariance uncertainty, </span>
+<span id="cb3-81"><a href="#cb3-81" aria-hidden="true" tabindex="-1"></a>  usually the larger driver of VaR error, is excluded, and the reported </span>
+<span id="cb3-82"><a href="#cb3-82" aria-hidden="true" tabindex="-1"></a>  credible intervals are therefore lower bounds on total parameter risk.</span>
+<span id="cb3-83"><a href="#cb3-83" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Gaussian tails.** The normal likelihood cannot represent fat tails or </span>
+<span id="cb3-84"><a href="#cb3-84" aria-hidden="true" tabindex="-1"></a>  skew. VaR and ES here are parametric Gaussian measures and will understate </span>
+<span id="cb3-85"><a href="#cb3-85" aria-hidden="true" tabindex="-1"></a>  losses in stressed markets.</span>
+<span id="cb3-86"><a href="#cb3-86" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**The sampler has not converged.** <span class="in">`r txt_fail`</span> fail the </span>
+<span id="cb3-87"><a href="#cb3-87" aria-hidden="true" tabindex="-1"></a>  split-$\hat{R} &lt; <span class="in">`r st$rhat_threshold`</span>$ test, bulk ESS is <span class="in">`r txt_bulk`</span> across <span class="in">`r num_word(res$n_chains)`</span> chains, and the </span>
+<span id="cb3-88"><a href="#cb3-88" aria-hidden="true" tabindex="-1"></a>  VaR credible interval is about <span class="in">`r txt_narrow`</span> too narrow. The chain's tail estimates </span>
+<span id="cb3-89"><a href="#cb3-89" aria-hidden="true" tabindex="-1"></a>  should not be used for decisions without a preconditioned or gradient-based </span>
+<span id="cb3-90"><a href="#cb3-90" aria-hidden="true" tabindex="-1"></a>  sampler.</span>
+<span id="cb3-91"><a href="#cb3-91" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Short run and burn-in.** The chains run <span class="in">`r scales::comma(st$n_iter)`</span> iterations with a <span class="in">`r st$burn_in`</span>-draw </span>
+<span id="cb3-92"><a href="#cb3-92" aria-hidden="true" tabindex="-1"></a>  burn-in, which the trace plots show is insufficient for overdispersed starts.</span>
+<span id="cb3-93"><a href="#cb3-93" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Deliberately simple setting.** The model is conjugate, so MCMC is not </span>
+<span id="cb3-94"><a href="#cb3-94" aria-hidden="true" tabindex="-1"></a>  actually needed here; it is used so that results can be checked against an </span>
+<span id="cb3-95"><a href="#cb3-95" aria-hidden="true" tabindex="-1"></a>  exact answer. Performance on non-conjugate models (for example, Student-t </span>
+<span id="cb3-96"><a href="#cb3-96" aria-hidden="true" tabindex="-1"></a>  likelihoods or joint mean–covariance estimation) is untested.</span>
+<span id="cb3-97"><a href="#cb3-97" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Narrow portfolio specification.** Results cover one equal-weighted </span>
+<span id="cb3-98"><a href="#cb3-98" aria-hidden="true" tabindex="-1"></a>  portfolio at a 1-day horizon and a <span class="in">`r sprintf("%.0f%%", st$alpha * 100)`</span> confidence level. Other weights, </span>
+<span id="cb3-99"><a href="#cb3-99" aria-hidden="true" tabindex="-1"></a>  horizons, or confidence levels are not assessed.</span>
+<span id="cb3-100"><a href="#cb3-100" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Illustrative scaling figures.** The grid-versus-MCMC timings in the </span>
+<span id="cb3-101"><a href="#cb3-101" aria-hidden="true" tabindex="-1"></a>  Dimensional Complexity table are illustrative estimates, not measured </span>
+<span id="cb3-102"><a href="#cb3-102" aria-hidden="true" tabindex="-1"></a>  benchmarks.</span>
+<span id="cb3-103"><a href="#cb3-103" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb3-104"><a href="#cb3-104" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-105"><a href="#cb3-105" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb3-106"><a href="#cb3-106" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-107"><a href="#cb3-107" aria-hidden="true" tabindex="-1"></a><span class="fu">## Plain-Language Translation: How It Works</span></span>
+<span id="cb3-108"><a href="#cb3-108" aria-hidden="true" tabindex="-1"></a>Imagine being placed on a large, pitch-black terrain with only a small flashlight, tasked with mapping the highest peaks and ridges. You cannot view the entire landscape at once, and pacing every square foot on a rigid grid would take an impractical amount of time. Instead, you take incremental random steps. When a step leads uphill toward higher ground, you take it; when a step heads downhill, you occasionally take it anyway to avoid staying confined to a single minor hill.</span>
+<span id="cb3-109"><a href="#cb3-109" aria-hidden="true" tabindex="-1"></a>Because you spend most of your time traversing higher ridges and pass quickly through low valleys, your path naturally traces the contours of the landscape. In financial modeling, algorithms like Markov Chain Monte Carlo deploy this sequential exploration to estimate portfolio risk. Rather than evaluating billions of arbitrary grid points across multiple correlated factors, the sampler concentrates computational effort directly in regions of high probability.</span>
+<span id="cb3-110"><a href="#cb3-110" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-111"><a href="#cb3-111" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb3-112"><a href="#cb3-112" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-113"><a href="#cb3-113" aria-hidden="true" tabindex="-1"></a><span class="fu">## The Dimensional Scaling Challenge</span></span>
+<span id="cb3-114"><a href="#cb3-114" aria-hidden="true" tabindex="-1"></a>When managing risk across multiple correlated factors—equity betas, credit spreads, duration, and commodities—quantifying joint parameter uncertainty is essential.</span>
+<span id="cb3-115"><a href="#cb3-115" aria-hidden="true" tabindex="-1"></a>In low dimensions, deterministic numerical quadratures or grid evaluations are trivial. However, as the parameter count ($D$) increases, Cartesian grid evaluations scale exponentially ($K^D$).</span>
+<span id="cb3-116"><a href="#cb3-116" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-117"><a href="#cb3-117" aria-hidden="true" tabindex="-1"></a><span class="in">```{r grid-breakdown-table, echo = TRUE}</span></span>
+<span id="cb3-118"><a href="#cb3-118" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-119"><a href="#cb3-119" aria-hidden="true" tabindex="-1"></a><span class="fu">generate_dimension_comparison</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb3-120"><a href="#cb3-120" aria-hidden="true" tabindex="-1"></a>  <span class="fu">gt</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb3-121"><a href="#cb3-121" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_header</span>(</span>
+<span id="cb3-122"><a href="#cb3-122" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="fu">md</span>(<span class="st">"**Dimensional Complexity: Grid Search vs. Stochastic Sampling**"</span>),</span>
+<span id="cb3-123"><a href="#cb3-123" aria-hidden="true" tabindex="-1"></a>    <span class="at">subtitle =</span> <span class="st">"Scaling behavior of uniform grid evaluation vs. stochastic simulation"</span></span>
 <span id="cb3-124"><a href="#cb3-124" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
-<span id="cb3-125"><a href="#cb3-125" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_style</span>(</span>
-<span id="cb3-126"><a href="#cb3-126" aria-hidden="true" tabindex="-1"></a>    <span class="at">style =</span> <span class="fu">cell_text</span>(<span class="at">weight =</span> <span class="st">"bold"</span>, <span class="at">color =</span> <span class="st">"#27ae60"</span>),</span>
-<span id="cb3-127"><a href="#cb3-127" aria-hidden="true" tabindex="-1"></a>    <span class="at">locations =</span> <span class="fu">cells_body</span>(<span class="at">columns =</span> MCMC_Solve_Time)</span>
-<span id="cb3-128"><a href="#cb3-128" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
-<span id="cb3-129"><a href="#cb3-129" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_options</span>(<span class="at">table.font.size =</span> <span class="dv">12</span>)</span>
-<span id="cb3-130"><a href="#cb3-130" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-131"><a href="#cb3-131" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb3-132"><a href="#cb3-132" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-133"><a href="#cb3-133" aria-hidden="true" tabindex="-1"></a>**Low-Dimensional Space ($D = 2$):** A coarse 10-point grid requires only $10^2 = 100$ function evaluations, making numerical quadratures instantaneous.</span>
-<span id="cb3-134"><a href="#cb3-134" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-135"><a href="#cb3-135" aria-hidden="true" tabindex="-1"></a>**Moderate Parameter Space ($D = 10$):** Uniform evaluation along each axis requires $10^{10}$ calculations (10 billion operations)—creating significant runtime bottlenecks in standard computing environments, whereas stochastic sampling traverses the distribution in seconds.</span>
-<span id="cb3-136"><a href="#cb3-136" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-137"><a href="#cb3-137" aria-hidden="true" tabindex="-1"></a>**Full Covariance Horizon ($D = 20$):** Modeling 20 factor means alongside full cross-asset covariances involves $D + D(D+1)/2 = 230$ distinct parameters. Evaluating such spaces on uniform deterministic grids is computationally intractable, making stochastic simulation essential for non-conjugate structures.</span>
-<span id="cb3-138"><a href="#cb3-138" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-139"><a href="#cb3-139" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb3-140"><a href="#cb3-140" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-141"><a href="#cb3-141" aria-hidden="true" tabindex="-1"></a><span class="fu">### The Random Walk Engine</span></span>
-<span id="cb3-142"><a href="#cb3-142" aria-hidden="true" tabindex="-1"></a>Markov Chain Monte Carlo navigates probability distributions via sequential, localized transitions:</span>
-<span id="cb3-143"><a href="#cb3-143" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-144"><a href="#cb3-144" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**Propose a Move:** The chain samples a candidate coordinate $\theta^*$ from a proposal distribution centered on the current state $\theta^{(t)}$.</span>
-<span id="cb3-145"><a href="#cb3-145" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**Evaluate Density Ratio:** It computes the target posterior probability ratio between candidate and current locations.</span>
-<span id="cb3-146"><a href="#cb3-146" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**Accept or Reject:** Proposals into higher-density regions are accepted; lower-density moves are accepted probabilistically, enabling the chain to explore parameter tails.</span>
-<span id="cb3-147"><a href="#cb3-147" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-148"><a href="#cb3-148" aria-hidden="true" tabindex="-1"></a>::: {.callout-note icon=false}</span>
-<span id="cb3-149"><a href="#cb3-149" aria-hidden="true" tabindex="-1"></a><span class="fu">## The Metropolis-Hastings Random Walk</span></span>
-<span id="cb3-150"><a href="#cb3-150" aria-hidden="true" tabindex="-1"></a>Evaluating joint portfolio risk across multiple interdependent assets presents substantial computational complexity when models deviate from simple analytical assumptions. Calculating every joint market permutation across a fine grid requires billions of evaluations, creating an operational bottleneck. The Metropolis-Hastings algorithm resolves this by deploying a sequential "digital scout." Rather than attempting to evaluate the entire parameter space uniformly, the algorithm takes incremental steps through potential states. If a proposed move discovers a region of higher probability, the chain transitions there; if it steps toward a lower-probability scenario, it still accepts the move occasionally to ensure thorough exploration.</span>
-<span id="cb3-151"><a href="#cb3-151" aria-hidden="true" tabindex="-1"></a>Over thousands of iterations, the algorithm visits parameter combinations in proportion to their joint posterior probability. This produces an empirical distribution of parameter uncertainty. For executive decision-makers, this turns otherwise intractable high-dimensional estimation into a practical sampling process, providing an empirical baseline for setting risk capital and stress limits.</span>
+<span id="cb3-125"><a href="#cb3-125" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cols_label</span>(</span>
+<span id="cb3-126"><a href="#cb3-126" aria-hidden="true" tabindex="-1"></a>    <span class="at">Dimensions =</span> <span class="st">"Factor Horizon"</span>,</span>
+<span id="cb3-127"><a href="#cb3-127" aria-hidden="true" tabindex="-1"></a>    <span class="at">Grid_Points_Per_Axis =</span> <span class="st">"Points / Axis"</span>,</span>
+<span id="cb3-128"><a href="#cb3-128" aria-hidden="true" tabindex="-1"></a>    <span class="at">Total_Grid_Evaluations =</span> <span class="fu">html</span>(<span class="st">"Grid Evaluations (K&lt;sup&gt;D&lt;/sup&gt;)"</span>),</span>
+<span id="cb3-129"><a href="#cb3-129" aria-hidden="true" tabindex="-1"></a>    <span class="at">Grid_Feasibility =</span> <span class="st">"Grid Feasibility"</span>,</span>
+<span id="cb3-130"><a href="#cb3-130" aria-hidden="true" tabindex="-1"></a>    <span class="at">MCMC_Iterations_Required =</span> <span class="st">"Target MCMC Draws"</span>,</span>
+<span id="cb3-131"><a href="#cb3-131" aria-hidden="true" tabindex="-1"></a>    <span class="at">MCMC_Solve_Time =</span> <span class="st">"Observed MCMC Time"</span></span>
+<span id="cb3-132"><a href="#cb3-132" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb3-133"><a href="#cb3-133" aria-hidden="true" tabindex="-1"></a>  <span class="fu">text_transform</span>(</span>
+<span id="cb3-134"><a href="#cb3-134" aria-hidden="true" tabindex="-1"></a>  <span class="at">locations =</span> <span class="fu">cells_body</span>(<span class="at">columns =</span> Total_Grid_Evaluations),</span>
+<span id="cb3-135"><a href="#cb3-135" aria-hidden="true" tabindex="-1"></a>  <span class="at">fn =</span> <span class="cf">function</span>(x) <span class="fu">gsub</span>(<span class="st">"10</span><span class="sc">\\</span><span class="st">^(</span><span class="sc">\\</span><span class="st">d+)"</span>, <span class="st">"10&lt;sup&gt;</span><span class="sc">\\</span><span class="st">1&lt;/sup&gt;"</span>, x)</span>
+<span id="cb3-136"><a href="#cb3-136" aria-hidden="true" tabindex="-1"></a>) <span class="sc">%&gt;%</span></span>
+<span id="cb3-137"><a href="#cb3-137" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_style</span>(</span>
+<span id="cb3-138"><a href="#cb3-138" aria-hidden="true" tabindex="-1"></a>    <span class="at">style =</span> <span class="fu">cell_text</span>(<span class="at">weight =</span> <span class="st">"bold"</span>, <span class="at">color =</span> <span class="st">"#c0392b"</span>),</span>
+<span id="cb3-139"><a href="#cb3-139" aria-hidden="true" tabindex="-1"></a>    <span class="at">locations =</span> <span class="fu">cells_body</span>(<span class="at">columns =</span> Total_Grid_Evaluations, <span class="at">rows =</span> <span class="dv">2</span><span class="sc">:</span><span class="dv">3</span>)</span>
+<span id="cb3-140"><a href="#cb3-140" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb3-141"><a href="#cb3-141" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_style</span>(</span>
+<span id="cb3-142"><a href="#cb3-142" aria-hidden="true" tabindex="-1"></a>    <span class="at">style =</span> <span class="fu">cell_text</span>(<span class="at">weight =</span> <span class="st">"bold"</span>, <span class="at">color =</span> <span class="st">"#27ae60"</span>),</span>
+<span id="cb3-143"><a href="#cb3-143" aria-hidden="true" tabindex="-1"></a>    <span class="at">locations =</span> <span class="fu">cells_body</span>(<span class="at">columns =</span> MCMC_Solve_Time)</span>
+<span id="cb3-144"><a href="#cb3-144" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb3-145"><a href="#cb3-145" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_options</span>(<span class="at">table.font.size =</span> <span class="dv">12</span>)</span>
+<span id="cb3-146"><a href="#cb3-146" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-147"><a href="#cb3-147" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb3-148"><a href="#cb3-148" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-149"><a href="#cb3-149" aria-hidden="true" tabindex="-1"></a>**Low-Dimensional Space ($D = 2$):** A coarse 10-point grid requires only $10^2 = 100$ function evaluations, making numerical quadratures instantaneous.</span>
+<span id="cb3-150"><a href="#cb3-150" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-151"><a href="#cb3-151" aria-hidden="true" tabindex="-1"></a>**Moderate Parameter Space ($D = 10$):** Uniform evaluation along each axis requires $10^{10}$ calculations (10 billion operations)—creating significant runtime bottlenecks in standard computing environments, whereas stochastic sampling traverses the distribution in seconds.</span>
 <span id="cb3-152"><a href="#cb3-152" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-153"><a href="#cb3-153" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb3-153"><a href="#cb3-153" aria-hidden="true" tabindex="-1"></a>**Full Covariance Horizon ($D = 20$):** Modeling 20 factor means alongside full cross-asset covariances involves $D + D(D+1)/2 = 230$ distinct parameters. Evaluating such spaces on uniform deterministic grids is computationally intractable, making stochastic simulation essential for non-conjugate structures.</span>
 <span id="cb3-154"><a href="#cb3-154" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-155"><a href="#cb3-155" aria-hidden="true" tabindex="-1"></a><span class="in">```{r hero-random-walk-model, fig.cap = "Figure 1: Metropolis-Hastings chain traversing a correlated bivariate parameter space."}</span></span>
+<span id="cb3-155"><a href="#cb3-155" aria-hidden="true" tabindex="-1"></a>---</span>
 <span id="cb3-156"><a href="#cb3-156" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-157"><a href="#cb3-157" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-width: 10</span></span>
-<span id="cb3-158"><a href="#cb3-158" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-height: 10</span></span>
+<span id="cb3-157"><a href="#cb3-157" aria-hidden="true" tabindex="-1"></a><span class="fu">## The Random Walk Engine</span></span>
+<span id="cb3-158"><a href="#cb3-158" aria-hidden="true" tabindex="-1"></a>Markov Chain Monte Carlo navigates probability distributions via sequential, localized transitions:</span>
 <span id="cb3-159"><a href="#cb3-159" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-160"><a href="#cb3-160" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_random_walk_2d</span>(hero_chain<span class="sc">$</span>draws, <span class="at">n_steps =</span> <span class="dv">180</span>)</span>
-<span id="cb3-161"><a href="#cb3-161" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-162"><a href="#cb3-162" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb3-160"><a href="#cb3-160" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**Propose a Move:** The chain samples a candidate coordinate $\theta^*$ from a proposal distribution centered on the current state $\theta^{(t)}$.</span>
+<span id="cb3-161"><a href="#cb3-161" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**Evaluate Density Ratio:** It computes the target posterior probability ratio between candidate and current locations.</span>
+<span id="cb3-162"><a href="#cb3-162" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**Accept or Reject:** Proposals into higher-density regions are accepted; lower-density moves are accepted probabilistically, enabling the chain to explore parameter tails.</span>
 <span id="cb3-163"><a href="#cb3-163" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-164"><a href="#cb3-164" aria-hidden="true" tabindex="-1"></a><span class="fu">#### Traversal Mechanics</span></span>
-<span id="cb3-165"><a href="#cb3-165" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Stationary Convergence:** Initializing from an arbitrary coordinate in the outer tail, the chain transitions toward the high-density contour core.</span>
-<span id="cb3-166"><a href="#cb3-166" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Proportional Dwell Time:** Once stationary, the chain continues moving, spending time across regions in proportion to target posterior density.</span>
-<span id="cb3-167"><a href="#cb3-167" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-168"><a href="#cb3-168" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb3-169"><a href="#cb3-169" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-170"><a href="#cb3-170" aria-hidden="true" tabindex="-1"></a><span class="fu">### Project Structure &amp; Roadmap</span></span>
-<span id="cb3-171"><a href="#cb3-171" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-172"><a href="#cb3-172" aria-hidden="true" tabindex="-1"></a>This project demonstrates the implementation, diagnostic auditing, and tail-risk application of first-principles MCMC:</span>
-<span id="cb3-173"><a href="#cb3-173" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-174"><a href="#cb3-174" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">The Metropolis Engine</span><span class="co">](01-mechanics.qmd)</span>: The R implementation from scratch (without MCMC libraries), detailing acceptance ratios and proposal step-size calibration.</span>
-<span id="cb3-175"><a href="#cb3-175" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Portfolio Risk Model</span><span class="co">](02-risk-application.qmd)</span>: Sampling the 10-factor posterior under fixed covariance to evaluate Value at Risk (VaR) and Expected Shortfall (ES), benchmarked against the exact closed-form posterior.</span>
-<span id="cb3-176"><a href="#cb3-176" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Audit &amp; Diagnostics</span><span class="co">](03-diagnostics.qmd)</span>: Four-chain convergence checks with split-$\hat{R}$, autocorrelation decay, and Effective Sample Size (ESS) audits cross-checked against the <span class="in">`posterior`</span> package.</span>
-<span id="cb3-177"><a href="#cb3-177" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Reproducibility</span><span class="co">](04-reproducibility.qmd)</span>: How to rebuild the site, the software environment, data checksum, seeds, and known limitations.</span>
-<span id="cb3-178"><a href="#cb3-178" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-164"><a href="#cb3-164" aria-hidden="true" tabindex="-1"></a>::: {.callout-note icon=false}</span>
+<span id="cb3-165"><a href="#cb3-165" aria-hidden="true" tabindex="-1"></a><span class="fu">## The Metropolis-Hastings Random Walk</span></span>
+<span id="cb3-166"><a href="#cb3-166" aria-hidden="true" tabindex="-1"></a>Evaluating joint portfolio risk across multiple interdependent assets presents substantial computational complexity when models deviate from simple analytical assumptions. Calculating every joint market permutation across a fine grid requires billions of evaluations, creating an operational bottleneck. The Metropolis-Hastings algorithm resolves this by deploying a sequential "digital scout." Rather than attempting to evaluate the entire parameter space uniformly, the algorithm takes incremental steps through potential states. If a proposed move discovers a region of higher probability, the chain transitions there; if it steps toward a lower-probability scenario, it still accepts the move occasionally to ensure thorough exploration.</span>
+<span id="cb3-167"><a href="#cb3-167" aria-hidden="true" tabindex="-1"></a>Over thousands of iterations, the algorithm visits parameter combinations in proportion to their joint posterior probability. This produces an empirical distribution of parameter uncertainty. For executive decision-makers, this turns otherwise intractable high-dimensional estimation into a practical sampling process, providing an empirical baseline for setting risk capital and stress limits.</span>
+<span id="cb3-168"><a href="#cb3-168" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-169"><a href="#cb3-169" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb3-170"><a href="#cb3-170" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-171"><a href="#cb3-171" aria-hidden="true" tabindex="-1"></a><span class="in">```{r hero-random-walk-model, fig.cap = "Figure 1: Metropolis-Hastings chain traversing a correlated bivariate parameter space."}</span></span>
+<span id="cb3-172"><a href="#cb3-172" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-173"><a href="#cb3-173" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-width: 10</span></span>
+<span id="cb3-174"><a href="#cb3-174" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-height: 10</span></span>
+<span id="cb3-175"><a href="#cb3-175" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-176"><a href="#cb3-176" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_random_walk_2d</span>(hero_chain<span class="sc">$</span>draws, <span class="at">n_steps =</span> <span class="dv">180</span>)</span>
+<span id="cb3-177"><a href="#cb3-177" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-178"><a href="#cb3-178" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb3-179"><a href="#cb3-179" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-180"><a href="#cb3-180" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-181"><a href="#cb3-181" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-182"><a href="#cb3-182" aria-hidden="true" tabindex="-1"></a><span class="in">```{css, echo = FALSE}</span></span>
-<span id="cb3-183"><a href="#cb3-183" aria-hidden="true" tabindex="-1"></a><span class="op">.</span><span class="fu">react_table</span> <span class="op">{</span></span>
-<span id="cb3-184"><a href="#cb3-184" aria-hidden="true" tabindex="-1"></a>  padding<span class="op">-</span>top<span class="op">:</span> <span class="dv">5</span>px<span class="op">;</span></span>
-<span id="cb3-185"><a href="#cb3-185" aria-hidden="true" tabindex="-1"></a>  padding<span class="op">-</span>bottom<span class="op">:</span> <span class="dv">5</span>px<span class="op">;</span></span>
-<span id="cb3-186"><a href="#cb3-186" aria-hidden="true" tabindex="-1"></a>  padding<span class="op">-</span>left<span class="op">:</span> <span class="dv">5</span>px<span class="op">;</span></span>
-<span id="cb3-187"><a href="#cb3-187" aria-hidden="true" tabindex="-1"></a>  padding<span class="op">-</span>right<span class="op">:</span> <span class="dv">5</span>px<span class="op">;</span></span>
-<span id="cb3-188"><a href="#cb3-188" aria-hidden="true" tabindex="-1"></a>  max<span class="op">-</span>height<span class="op">:</span> <span class="dv">600</span>px<span class="op">;</span></span>
-<span id="cb3-189"><a href="#cb3-189" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
-<span id="cb3-190"><a href="#cb3-190" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-191"><a href="#cb3-191" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+<span id="cb3-180"><a href="#cb3-180" aria-hidden="true" tabindex="-1"></a><span class="fu">### Traversal Mechanics</span></span>
+<span id="cb3-181"><a href="#cb3-181" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Stationary Convergence:** Initializing from an arbitrary coordinate in the outer tail, the chain transitions toward the high-density contour core.</span>
+<span id="cb3-182"><a href="#cb3-182" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Proportional Dwell Time:** Once stationary, the chain continues moving, spending time across regions in proportion to target posterior density.</span>
+<span id="cb3-183"><a href="#cb3-183" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-184"><a href="#cb3-184" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb3-185"><a href="#cb3-185" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-186"><a href="#cb3-186" aria-hidden="true" tabindex="-1"></a><span class="fu">## Project Structure &amp; Roadmap</span></span>
+<span id="cb3-187"><a href="#cb3-187" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-188"><a href="#cb3-188" aria-hidden="true" tabindex="-1"></a>This project demonstrates the implementation, diagnostic auditing, and tail-risk application of first-principles MCMC:</span>
+<span id="cb3-189"><a href="#cb3-189" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-190"><a href="#cb3-190" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">The Metropolis Engine</span><span class="co">](01-mechanics.qmd)</span>: The R implementation from scratch (without MCMC libraries), detailing acceptance ratios and proposal step-size calibration.</span>
+<span id="cb3-191"><a href="#cb3-191" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Portfolio Risk Model</span><span class="co">](02-risk-application.qmd)</span>: Sampling the <span class="in">`r res$d`</span>-factor posterior under fixed covariance to evaluate Value at Risk (VaR) and Expected Shortfall (ES), benchmarked against the exact closed-form posterior.</span>
+<span id="cb3-192"><a href="#cb3-192" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Audit &amp; Diagnostics</span><span class="co">](03-diagnostics.qmd)</span>: <span class="in">`r stringr::str_to_sentence(num_word(res$n_chains))`</span>-chain convergence checks with split-$\hat{R}$, autocorrelation decay, and Effective Sample Size (ESS) audits cross-checked against the <span class="in">`posterior`</span> package.</span>
+<span id="cb3-193"><a href="#cb3-193" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Reproducibility</span><span class="co">](04-reproducibility.qmd)</span>: How to rebuild the site, the software environment, data checksum, seeds, and known limitations.</span>
+<span id="cb3-194"><a href="#cb3-194" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-195"><a href="#cb3-195" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-196"><a href="#cb3-196" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-197"><a href="#cb3-197" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-198"><a href="#cb3-198" aria-hidden="true" tabindex="-1"></a><span class="in">```{css, echo = FALSE}</span></span>
+<span id="cb3-199"><a href="#cb3-199" aria-hidden="true" tabindex="-1"></a><span class="op">.</span><span class="fu">react_table</span> <span class="op">{</span></span>
+<span id="cb3-200"><a href="#cb3-200" aria-hidden="true" tabindex="-1"></a>  padding<span class="op">-</span>top<span class="op">:</span> <span class="dv">5</span>px<span class="op">;</span></span>
+<span id="cb3-201"><a href="#cb3-201" aria-hidden="true" tabindex="-1"></a>  padding<span class="op">-</span>bottom<span class="op">:</span> <span class="dv">5</span>px<span class="op">;</span></span>
+<span id="cb3-202"><a href="#cb3-202" aria-hidden="true" tabindex="-1"></a>  padding<span class="op">-</span>left<span class="op">:</span> <span class="dv">5</span>px<span class="op">;</span></span>
+<span id="cb3-203"><a href="#cb3-203" aria-hidden="true" tabindex="-1"></a>  padding<span class="op">-</span>right<span class="op">:</span> <span class="dv">5</span>px<span class="op">;</span></span>
+<span id="cb3-204"><a href="#cb3-204" aria-hidden="true" tabindex="-1"></a>  max<span class="op">-</span>height<span class="op">:</span> <span class="dv">600</span>px<span class="op">;</span></span>
+<span id="cb3-205"><a href="#cb3-205" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb3-206"><a href="#cb3-206" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-207"><a href="#cb3-207" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
 </div></div></div></div></div>
 </div> <!-- /content -->
 <footer class="footer">
